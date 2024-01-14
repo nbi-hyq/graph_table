@@ -1,6 +1,8 @@
 import networkx as nx
 import numpy as np
 import copy
+import time
+from itertools import permutations
 
 
 # locally complement a graph at node m
@@ -22,6 +24,7 @@ class GraphTable:
         self.n_orbit = 0  # number of orbits
         self.a_graph_orbit = None  # array indexed by graph index, giving the orbit
         self.l_num_to_orbit = []  # number of measurements needed to reach orbit, indexed by graph-orbit number
+        self.len_max = 0  # keep track of the longest list of non-isomorphic graphs that make hash collisions
 
     # add graph it is not isomorphic to an already existing one
     def add_non_isomorphic(self, g):
@@ -37,6 +40,8 @@ class GraphTable:
         self.l_graph.append(g)
         if h in self.graph_dict.keys():  # other graph with same hash exists
             self.graph_dict[h].append(self.n_graph)
+            if len(self.graph_dict[h]) > self.len_max:
+                self.len_max = self.graph_dict[h]
         else:
             self.graph_dict[h] = [self.n_graph]
         self.n_graph += 1
@@ -59,24 +64,44 @@ class GraphTable:
     def init_single_emitter_graphs(self):
         for n_start in range(1, self.num_node_max+1):
             for i_e in range(2**(n_start-1)):
-                # create graph that can be created by single emitter
-                g = nx.empty_graph(n_start)
-                edge_pattern = ('{0:0' + str(n_start-1) + 'b}').format(i_e)
-                for i_k, k in enumerate(edge_pattern):
-                    if k == '1':
-                        g.add_edge(i_k, i_k+1)
-                # TBD: add branch arms (only line graphs up to here)
+                for n_all in range(n_start, self.num_node_max + 1):
+                    # create graph that can be created by single emitter
+                    gr = nx.empty_graph(n_start)
+                    gr.add_nodes_from([n for n in range(n_start, n_all)])  # nodes for branch arms
+                    edge_pattern = ('{0:0' + str(n_start-1) + 'b}').format(i_e)
+                    for i_k, k in enumerate(edge_pattern):
+                        if k == '1':
+                            gr.add_edge(i_k, i_k+1)
+                    # add branches to chain (all connected, unconnected is covered by correspondingly longer chain)
+                    l_order = [0 for _ in range(n_start-1)]  # 0 is placeholder between nodes in line
+                    l_order.extend([1 for _ in range(n_start, n_all)])
+                    per = permutations(l_order)
+                    while True:
+                        try:
+                            order = next(per)
+                        except StopIteration:
+                            break
+                        g = copy.deepcopy(gr)
+                        n_line = 0  # node number in line graph to which stuff is attached
+                        n_branch = n_start  # node number of branch node that is attached
+                        for k in order:
+                            if k == 0:
+                                n_line += 1
+                            else:
+                                g.add_edge(n_line, n_branch)
+                                n_branch += 1
 
-                # add the graph if it does not exist
-                exists_g, idx_g = self.add_non_isomorphic(g)
+                        # add the graph if it does not exist
+                        exists_g, idx_g = self.add_non_isomorphic(g)
 
-                # go though all graphs in 1-neighborhood with respect to local complementation
-                if exists_g:
-                    continue
-                else:
-                    self.l_orbit.append([idx_g])
-                    self.n_orbit += 1
-                    self.explore_orbit_recursive(g, idx_g)
+                        # go though all graphs that are locally equivalent
+                        if exists_g:
+                            continue
+                        else:
+                            self.l_orbit.append([idx_g])
+                            self.n_orbit += 1
+                            self.explore_orbit_recursive(g, idx_g)
+            print(n_start, '#orbits', self.n_orbit, '#graphs', self.n_graph)
 
         self.a_graph_orbit = np.zeros(self.n_graph, dtype=int)  # array indexed by graph index, giving the orbit
         for i_o, orbit in enumerate(self.l_orbit):
@@ -102,8 +127,11 @@ class GraphTable:
 
 
 if __name__ == '__main__':
-    g_table = GraphTable(6)
+    t0 = time.time()
+    g_table = GraphTable(8)
     g_table.init_single_emitter_graphs()
-    g_table.print_all_orbits()
-    g_table.print_orbit(10)
+    #g_table.print_all_orbits()
+    #g_table.print_orbit(10)
+    print(time.time()-t0)
+    print('coll: ',g_table.len_max)
     g_table.generate_orbit_connections()
