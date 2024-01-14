@@ -3,6 +3,7 @@ import numpy as np
 import copy
 import time
 import dill
+from graph_transformer import measure_single, measure_double_parity
 
 
 # locally complement a graph at node m
@@ -24,6 +25,7 @@ class GraphTable:
         self.n_orbit = 0  # number of orbits
         self.a_graph_orbit = None  # array indexed by graph index, giving the orbit
         self.l_num_to_orbit = []  # number of measurements needed to reach orbit, indexed by graph-orbit number
+        self.l_link_to_orbit = []  # graph and measurement pattern that links to the orbit
         self.len_max = 0  # keep track of the longest list of non-isomorphic graphs that make hash collisions
         self.per = []  # only used for permuting branches
 
@@ -58,7 +60,7 @@ class GraphTable:
         if h in self.graph_dict.keys():  # other graph with same hash exists
             self.graph_dict[h].append(self.n_graph)
             if len(self.graph_dict[h]) > self.len_max:
-                self.len_max = self.graph_dict[h]
+                self.len_max = len(self.graph_dict[h])
         else:
             self.graph_dict[h] = [self.n_graph]
         self.n_graph += 1
@@ -69,7 +71,7 @@ class GraphTable:
         l_bfs = [gr]
         bfs_pos = 0
         while bfs_pos < len(l_bfs):
-            for n in range(gr.number_of_nodes()):
+            for n in gr.nodes:
                 if [nb for nb in l_bfs[bfs_pos].neighbors(n)]:  # for nodes with no neighbors nothing needs to be done
                     g = copy.deepcopy(l_bfs[bfs_pos])
                     local_compl(g, n)
@@ -79,13 +81,22 @@ class GraphTable:
                         l_bfs.append(g)
             bfs_pos += 1
 
-    # add graph if it does not exist and also add the corresponding orbit
-    def add_orbit(self, g):
+    # add graph if it does not exist and also add the corresponding orbit, origin: number of measurements to reach root
+    def add_orbit(self, g, origin=-1, link=[]):
         exists_g, idx_g = self.add_non_isomorphic(g)
         if not exists_g:  # go through all graphs that are locally equivalent
             self.l_orbit.append([idx_g])
             self.n_orbit += 1
+            self.l_num_to_orbit.append(origin + 1)  # default -1: orbit is reached without any measurements
+            self.l_link_to_orbit.append(link)  # default []: orbit is reached without any measurements
             self.explore_orbit_bfs(g)
+
+    # get the map from graph index to its corresponding orbit index
+    def get_a_graph_orbit(self):
+        self.a_graph_orbit = np.zeros(self.n_graph, dtype=int)  # array indexed by graph index, giving the orbit
+        for i_o, orbit in enumerate(self.l_orbit):
+            for g_idx in orbit:
+                self.a_graph_orbit[g_idx] = i_o
 
     # initialize all graphs that a single emitter can make, plus local gates/complementation
     def init_single_emitter_graphs(self, all_connected=False):
@@ -119,10 +130,7 @@ class GraphTable:
                                 n_branch += 1
                         self.add_orbit(g)
             print(n_start, '#orbits', self.n_orbit, '#graphs', self.n_graph)
-        self.a_graph_orbit = np.zeros(self.n_graph, dtype=int)  # array indexed by graph index, giving the orbit
-        for i_o, orbit in enumerate(self.l_orbit):
-            for g_idx in orbit:
-                self.a_graph_orbit[g_idx] = i_o
+        self.get_a_graph_orbit()
 
     # print the graphs in a certain orbit
     def print_orbit(self, idx_orbit):
@@ -131,29 +139,55 @@ class GraphTable:
         print('----------------------------')
 
     # print the graphs in all orbits
-    def print_all_orbits(self):
-        for idx in range(self.n_orbit):
+    def print_all_orbits(self, start=0):
+        for idx in range(start, self.n_orbit):
             self.print_orbit(idx)
 
     # create connections between the orbits by measurements
     def generate_orbit_connections(self):
-        for g in self.l_graph:
-            a = None
-            # TBD: apply graph tranformations and make links between orbits
+        single = ['X', 'Y', 'Z']
+        fusion = ['XZZX', 'XXZZ', 'XYYX', 'YZZY', 'XYYZ', 'YXZY']
+        num_graph_init = self.n_graph
+        depth = 0  # depth in the tablebase
+        start = 0  # where the orbits of largest depth start
+        while True:
+            print(depth)
+            depth += 1
+            for i in range(start, num_graph_init):  # only loop over orbits that have been added in previous round
+                gr = self.l_graph[i]
+                _, gr_idx = self.add_non_isomorphic(gr)  # just for finding graph index of existing graph
+                parent_orbit = self.a_graph_orbit[gr_idx]
+                for pauli in single:
+                    for n in gr.nodes:
+                        g = copy.deepcopy(gr)
+                        measure_single(g, n, pauli)
+                        self.add_orbit(g, origin=self.l_num_to_orbit[parent_orbit], link=[gr_idx, n, pauli])
+                for f in fusion:
+                    for n in gr.nodes:
+                        for m in gr.nodes:
+                            if m != n:
+                                g = copy.deepcopy(gr)
+                                measure_double_parity(g, n, m, f)
+                                self.add_orbit(g, origin=self.l_num_to_orbit[parent_orbit], link=[gr_idx, n, m, f])
+            start = num_graph_init
+            if num_graph_init == self.n_graph:  # stop if no new graph added
+                break
+            num_graph_init = self.n_graph
+            self.get_a_graph_orbit()
 
 
 if __name__ == '__main__':
     load = False
     if load:
-        dill.load_module('save_table.pkl')
-        #g_table.print_all_orbit()
+        dill.load_module('save_table_all.pkl')
     else:
         t0 = time.time()
         g_table = GraphTable(12)
         g_table.init_single_emitter_graphs(all_connected=True)
+        g_table.generate_orbit_connections()
         computation_time = time.time() - t0
         print(computation_time)
-        print('collisions: ', g_table.len_max)
-        #g_table.print_all_orbits()
-        g_table.generate_orbit_connections()
+        print(g_table.l_num_to_orbit)
+        print('collisions max: ', g_table.len_max)
         dill.dump_module('save_table.pkl')
+        g_table.print_all_orbits(start=g_table.n_orbit-1)
