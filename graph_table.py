@@ -87,8 +87,8 @@ class GraphTable:
         if not exists_g:  # go through all graphs that are locally equivalent
             self.l_orbit.append([idx_g])
             self.n_orbit += 1
-            self.l_num_to_orbit.append(origin + 1)  # default -1: orbit is reached without any measurements
-            self.l_link_to_orbit.append(link)  # default []: orbit is reached without any measurements
+            self.l_num_to_orbit.append(origin + 1)  # number of measurements to reach the orbit
+            self.l_link_to_orbit.append(link)  # incoming line to orbit [graph, node(s), measurement]
             self.explore_orbit_bfs(g)
 
     # get the map from graph index to its corresponding orbit index
@@ -175,6 +175,19 @@ class GraphTable:
             num_graph_init = self.n_graph
             self.get_a_graph_orbit()
 
+    # determine way of generating g by going backwards in tablebase
+    def back_trace(self, gr):
+        exist_gr, gr_idx = self.add_non_isomorphic(gr)  # just for finding graph index, TBD: adds graph if non-existing
+        if exist_gr:
+            parent_orbit = self.a_graph_orbit[gr_idx]
+            while self.l_num_to_orbit[parent_orbit] > 0:
+                print(self.l_link_to_orbit[parent_orbit])
+                gr_idx = self.l_link_to_orbit[parent_orbit][0]
+                parent_orbit = self.a_graph_orbit[gr_idx]
+            print(self.l_graph[gr_idx].edges)
+        else:
+            print('graph is not in tablebase')
+
 
 if __name__ == '__main__':
     load = False
@@ -182,12 +195,17 @@ if __name__ == '__main__':
         dill.load_module('save_table_all.pkl')
     else:
         t0 = time.time()
-        g_table = GraphTable(12)
-        g_table.init_single_emitter_graphs(all_connected=True)
-        g_table.generate_orbit_connections()
+        t_graph = GraphTable(12)
+        t_graph.init_single_emitter_graphs(all_connected=True)
+        t_graph.generate_orbit_connections()
         computation_time = time.time() - t0
         print(computation_time)
-        print(g_table.l_num_to_orbit)
-        print('collisions max: ', g_table.len_max)
+        print(t_graph.l_num_to_orbit)
+        print('collisions max: ', t_graph.len_max)
         dill.dump_module('save_table.pkl')
-        g_table.print_all_orbits(start=g_table.n_orbit-1)
+        t_graph.print_all_orbits(start=t_graph.n_orbit-1)
+
+        g_cube = nx.Graph()
+        g_cube.add_nodes_from([i for i in range(8)])
+        g_cube.add_edges_from([(0, 1), (1, 3), (3, 2), (0, 2), (4, 5), (5, 7), (7, 6), (4, 6), (0, 4), (1, 5), (2, 6), (3, 7)])
+        t_graph.back_trace(g_cube)
