@@ -244,9 +244,9 @@ class GraphTable:
 
 
 if __name__ == '__main__':
-    load = False
+    load = True
     if load:
-        dill.load_module('save_table.pkl')
+        dill.load_module('save_table_12_connected.pkl')
     else:
         t0 = time.time()
         t_graph = GraphTable(12)
@@ -260,23 +260,36 @@ if __name__ == '__main__':
         t_graph.print_all_orbits(start=t_graph.n_orbit-1)
         print('num_to_orbit frequencies: ', [np.sum(np.array(t_graph.l_num_to_orbit) == i) for i in range(10)])
         print('collisions max: ', t_graph.len_max)
+
+    # make sure the GraphTable object uses the methods defined in this file and not the pickled ones
+    from graph_table import *
+    t_new = GraphTable(0)
+    for v in vars(t_graph).keys():
+        exec('t_new.' + v + '= t_graph.' + v)
+
+    # check a few examples
     print('cube: ================================')
     g_cube = nx.Graph()
     g_cube.add_nodes_from([i for i in range(8)])
     g_cube.add_edges_from([(0, 1), (1, 3), (3, 2), (0, 2), (4, 5), (5, 7), (7, 6), (4, 6), (0, 4), (1, 5), (2, 6), (3, 7)])
-    t_graph.back_trace(g_cube)
+    t_new.back_trace(g_cube)
     print('stean code: ================================')
     g_cube = nx.Graph()
     g_cube.add_nodes_from([i for i in range(7)])
     g_cube.add_edges_from([(0, 1), (1, 3), (3, 2), (0, 2), (4, 5), (4, 6), (0, 4), (1, 5), (2, 6)])
-    t_graph.back_trace(g_cube)
+    t_new.back_trace(g_cube)
     print('5-ring + 2 leave qubits: ================================')
     g_cube = nx.Graph()
     g_cube.add_nodes_from([i for i in range(7)])
     g_cube.add_edges_from([(0, 1), (1, 2), (2, 3), (3, 4), (4, 0), (0, 5), (2, 6)])
-    t_graph.back_trace(g_cube)
+    t_new.back_trace(g_cube)
     print('5-ring: ================================')
     g_cube = nx.Graph()
     g_cube.add_nodes_from([i for i in range(5)])
     g_cube.add_edges_from([(0, 1), (1, 2), (2, 3), (3, 4), (4, 0)])
-    t_graph.back_trace(g_cube)
+    t_new.back_trace(g_cube)
+    print('5-ring wheel: ================================')
+    g_cube = nx.Graph()
+    g_cube.add_nodes_from([i for i in range(6)])
+    g_cube.add_edges_from([(0, 1), (1, 2), (2, 3), (3, 4), (4, 0), (0, 5), (1, 5), (2, 5), (3, 5), (4, 5)])
+    t_new.back_trace(g_cube)
