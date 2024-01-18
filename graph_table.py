@@ -45,15 +45,21 @@ class GraphTable:
                 self.per.append(tuple(l_current))
             l_current.pop()
 
-    # add graph it is not isomorphic to an already existing one
-    def add_non_isomorphic(self, g):
+    # find graph in graph dictionary
+    def find_graph(self, g):
         h = nx.weisfeiler_lehman_graph_hash(g)
         isomorphic_exists = False
+        idx_graph = None
         if h in self.graph_dict.keys():
             for idx_graph in self.graph_dict[h]:
                 if nx.is_isomorphic(g, self.l_graph[idx_graph]):
                     isomorphic_exists = True
                     break
+        return h, isomorphic_exists, idx_graph
+
+    # add graph it is not isomorphic to an already existing one
+    def add_non_isomorphic(self, g):
+        h, isomorphic_exists, idx_graph = self.find_graph(g)
         if isomorphic_exists:
             return isomorphic_exists, idx_graph
         self.l_graph.append(g)
@@ -154,7 +160,7 @@ class GraphTable:
             for i in range(start, num_graph_init):  # only loop over orbits that have been added in previous round
                 print(depth, i)
                 gr = self.l_graph[i]
-                _, gr_idx = self.add_non_isomorphic(gr)  # just for finding graph index of existing graph
+                _, _, gr_idx = self.find_graph(gr)
                 parent_orbit = self.a_graph_orbit[gr_idx]
                 for pauli in single:
                     for n in gr.nodes:
@@ -175,16 +181,64 @@ class GraphTable:
             self.get_a_graph_orbit()
             depth += 1
 
+    # inefficient way of finding connecting path within orbit via BFS (path from gr_idx1 ro gr_idx2)
+    def find_path_in_oribit(self, gr_idx1, gr_idx2):
+        if gr_idx1 == gr_idx2:
+            print('gr1 == gr2')
+        elif self.a_graph_orbit[gr_idx1] == self.a_graph_orbit[gr_idx2]:
+            idx_set = set([gr_idx1])  # to see if graph is there already
+            bfs_list = [copy.deepcopy(self.l_graph[gr_idx1])]
+            root_list = [-1]  # graph index in bfs_list on which LC is applied to reach current graph
+            lc_list = [-1]  # node number for local complementation
+            bfs_pos = 0
+            run = True
+            # explore with BFS
+            while run:
+                for n in bfs_list[bfs_pos].nodes:
+                    gr_new = copy.deepcopy(bfs_list[bfs_pos])
+                    local_compl(gr_new, n)
+                    _, _, idx_new = self.find_graph(gr_new)
+                    if idx_new not in idx_set:
+                        idx_set.add(idx_new)
+                        bfs_list.append(copy.deepcopy(gr_new))
+                        root_list.append(bfs_pos)
+                        lc_list.append(n)
+                    if idx_new == gr_idx2:
+                        run = False
+                        break
+                bfs_pos += 1
+            # go backwards to find path
+            pos = len(root_list) - 1
+            path = []
+            while pos > 0:
+                path.append(lc_list[pos])
+                pos = root_list[pos]
+            print('LC-path: ', list(reversed(path)))
+        else:
+            print('graphs not in same orbit')
+
+    # get the graph index of the graph that is transformed by the measurement
+    # link has the form [gr_idx, n_qbit, measurement] or [gr_idx, n_qbit1, n_qbit2, measurement]
+    def get_measured_graph_idx(self, link):
+        g = copy.deepcopy(self.l_graph[link[0]])
+        if len(link) == 3:
+            measure_single(g, link[1], link[2])
+        elif len(link) == 4:
+            measure_double_parity(g, link[1], link[2], link[3])
+        _, _, idx = self.find_graph(g)
+        return idx
+
     # determine way of generating g by going backwards in tablebase
     def back_trace(self, gr):
-        exist_gr, gr_idx = self.add_non_isomorphic(gr)  # just for finding graph index, TBD: adds graph if non-existing
+        _, exist_gr, gr_idx = self.find_graph(gr)
         if exist_gr:
             parent_orbit = self.a_graph_orbit[gr_idx]
             while self.l_num_to_orbit[parent_orbit] > 0:
+                self.find_path_in_oribit(self.get_measured_graph_idx(self.l_link_to_orbit[parent_orbit]), gr_idx)  # connections within orbit
                 print(self.l_link_to_orbit[parent_orbit])
                 gr_idx = self.l_link_to_orbit[parent_orbit][0]
+                print(self.l_graph[gr_idx].edges)
                 parent_orbit = self.a_graph_orbit[gr_idx]
-            print(self.l_graph[gr_idx].edges)
         else:
             print('graph is not in tablebase')
 
@@ -206,7 +260,6 @@ if __name__ == '__main__':
         t_graph.print_all_orbits(start=t_graph.n_orbit-1)
         print('num_to_orbit frequencies: ', [np.sum(np.array(t_graph.l_num_to_orbit) == i) for i in range(10)])
         print('collisions max: ', t_graph.len_max)
-
     print('cube: ================================')
     g_cube = nx.Graph()
     g_cube.add_nodes_from([i for i in range(8)])
@@ -221,4 +274,9 @@ if __name__ == '__main__':
     g_cube = nx.Graph()
     g_cube.add_nodes_from([i for i in range(7)])
     g_cube.add_edges_from([(0, 1), (1, 2), (2, 3), (3, 4), (4, 0), (0, 5), (2, 6)])
+    t_graph.back_trace(g_cube)
+    print('5-ring: ================================')
+    g_cube = nx.Graph()
+    g_cube.add_nodes_from([i for i in range(5)])
+    g_cube.add_edges_from([(0, 1), (1, 2), (2, 3), (3, 4), (4, 0)])
     t_graph.back_trace(g_cube)
