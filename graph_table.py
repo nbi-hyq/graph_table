@@ -151,7 +151,7 @@ class GraphTable:
 
     # create connections between the orbits by measurements
     def generate_orbit_connections(self):
-        single = ['X', 'Y', 'Z']
+        single = ['Z']
         fusion = ['XZZX', 'XXZZ', 'XYYX', 'YZZY', 'XYYZ', 'YXZY']
         num_graph_init = self.n_graph
         depth = 0  # depth in the tablebase
@@ -170,7 +170,6 @@ class GraphTable:
                 for f in fusion:
                     for n in gr.nodes:
                         for m in gr.nodes:
-                            if m != n:
                                 g = copy.deepcopy(gr)
                                 measure_double_parity(g, n, m, f)
                                 self.add_orbit(g, origin=self.l_num_to_orbit[parent_orbit], link=[gr_idx, n, m, f])
