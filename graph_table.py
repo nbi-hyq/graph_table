@@ -152,7 +152,7 @@ class GraphTable:
     # create connections between the orbits by measurements
     def generate_orbit_connections(self):
         single = ['Z']
-        fusion = ['XZZX', 'XXZZ', 'XYYX', 'YZZY', 'XYYZ', 'YXZY']
+        fusion = ['XZZX']
         num_graph_init = self.n_graph
         depth = 0  # depth in the tablebase
         start = 0  # where the orbits of largest depth start
@@ -244,13 +244,13 @@ class GraphTable:
 
 
 if __name__ == '__main__':
-    load = True
+    load = False
     if load:
         dill.load_module('save_table_12_connected.pkl')
     else:
         t0 = time.time()
         t_graph = GraphTable(12)
-        t_graph.init_single_emitter_graphs(all_connected=False)
+        t_graph.init_single_emitter_graphs(all_connected=True)
         t1 = time.time()
         print(t1 - t0)
         t_graph.generate_orbit_connections()
@@ -274,22 +274,32 @@ if __name__ == '__main__':
     g_cube.add_edges_from([(0, 1), (1, 3), (3, 2), (0, 2), (4, 5), (5, 7), (7, 6), (4, 6), (0, 4), (1, 5), (2, 6), (3, 7)])
     t_new.back_trace(g_cube)
     print('stean code: ================================')
-    g_cube = nx.Graph()
-    g_cube.add_nodes_from([i for i in range(7)])
-    g_cube.add_edges_from([(0, 1), (1, 3), (3, 2), (0, 2), (4, 5), (4, 6), (0, 4), (1, 5), (2, 6)])
-    t_new.back_trace(g_cube)
+    graph = nx.Graph()
+    graph.add_nodes_from([i for i in range(7)])
+    graph.add_edges_from([(0, 1), (1, 3), (3, 2), (0, 2), (4, 5), (4, 6), (0, 4), (1, 5), (2, 6)])
+    t_new.back_trace(graph)
     print('5-ring + 2 leave qubits: ================================')
-    g_cube = nx.Graph()
-    g_cube.add_nodes_from([i for i in range(7)])
-    g_cube.add_edges_from([(0, 1), (1, 2), (2, 3), (3, 4), (4, 0), (0, 5), (2, 6)])
-    t_new.back_trace(g_cube)
+    graph = nx.Graph()
+    graph.add_nodes_from([i for i in range(7)])
+    graph.add_edges_from([(0, 1), (1, 2), (2, 3), (3, 4), (4, 0), (0, 5), (2, 6)])
+    t_new.back_trace(graph)
     print('5-ring: ================================')
-    g_cube = nx.Graph()
-    g_cube.add_nodes_from([i for i in range(5)])
-    g_cube.add_edges_from([(0, 1), (1, 2), (2, 3), (3, 4), (4, 0)])
-    t_new.back_trace(g_cube)
+    graph = nx.Graph()
+    graph.add_nodes_from([i for i in range(5)])
+    graph.add_edges_from([(0, 1), (1, 2), (2, 3), (3, 4), (4, 0)])
+    t_new.back_trace(graph)
     print('5-ring wheel: ================================')
-    g_cube = nx.Graph()
-    g_cube.add_nodes_from([i for i in range(6)])
-    g_cube.add_edges_from([(0, 1), (1, 2), (2, 3), (3, 4), (4, 0), (0, 5), (1, 5), (2, 5), (3, 5), (4, 5)])
-    t_new.back_trace(g_cube)
+    graph = nx.Graph()
+    graph.add_nodes_from([i for i in range(6)])
+    graph.add_edges_from([(0, 1), (1, 2), (2, 3), (3, 4), (4, 0), (0, 5), (1, 5), (2, 5), (3, 5), (4, 5)])
+    t_new.back_trace(graph)
+    print('8-qubit RGS: ================================')
+    graph = nx.Graph()
+    graph.add_nodes_from([i for i in range(8)])
+    graph.add_edges_from([(0, 1), (1, 2), (2, 3), (3, 0), (0, 2), (1, 3), (0, 4), (1, 5), (2, 6), (3, 7)])
+    t_new.back_trace(graph)
+    print('7-qubit code: ================================')
+    graph = nx.Graph()
+    graph.add_nodes_from([i for i in range(7)])
+    graph.add_edges_from([(0, 1), (1, 2), (2, 3), (3, 4), (4, 5), (5, 0), (0, 6), (3, 6)])
+    t_new.back_trace(graph)
