@@ -104,6 +104,12 @@ class GraphTable:
             for g_idx in orbit:
                 self.a_graph_orbit[g_idx] = i_o
 
+    # initialize from list of given graphs
+    def init_from_graphs(self, l_graph):
+        for g_init in l_graph:
+            self.add_orbit(g_init)
+        self.get_a_graph_orbit()
+
     # initialize all graphs that a single emitter can make, plus local gates/complementation
     def init_single_emitter_graphs(self, all_connected=False):
         for n_start in range(1, self.num_node_max+1):
