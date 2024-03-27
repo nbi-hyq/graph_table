@@ -3,7 +3,8 @@ from graph_table import *
 
 
 # very simplistic method to check if two graphs are locally equivalent
-# time complexity on the order of the graph orbit
+# time complexity on the order of the graph orbit (always generates the entire orbit)
+
 
 t0 = time.time()
 t_check_lc_equiv = GraphTable(8)
@@ -19,21 +20,19 @@ print('graphs g1, g2 are locally equivalent: ', g2_exists)
 t1 = time.time()
 print(t1 - t0)
 
-t0 = time.time()
 t_check_lc_equiv = GraphTable(4)
 g1 = nx.Graph()
-g1.add_nodes_from([i for i in range(8)])
+g1.add_nodes_from([i for i in range(4)])
 g1.add_edges_from([(0, 1), (1, 2), (2, 3)])
 g2 = nx.Graph()
-g2.add_nodes_from([i for i in range(8)])
+g2.add_nodes_from([i for i in range(4)])
 g2.add_edges_from([(0, 1), (1, 2), (2, 3), (3, 0)])
 t_check_lc_equiv.init_from_graphs([g1])
 _, g2_exists, _ = t_check_lc_equiv.find_graph(g2)
 print('graphs g1, g2 are locally equivalent: ', g2_exists)
-t1 = time.time()
-print(t1 - t0)
+t2 = time.time()
+print(t2 - t1)
 
-t0 = time.time()
 t_check_lc_equiv = GraphTable(10)
 g1 = nx.Graph()
 g1.add_nodes_from([i for i in range(10)])
@@ -44,10 +43,9 @@ g2.add_edges_from([(0, 1), (1, 2), (2, 3), (3, 4), (4, 5), (5, 6), (6, 7), (7, 0
 t_check_lc_equiv.init_from_graphs([g1])
 _, g2_exists, _ = t_check_lc_equiv.find_graph(g2)
 print('graphs g1, g2 are locally equivalent: ', g2_exists)
-t1 = time.time()
-print(t1 - t0)
+t3 = time.time()
+print(t3 - t2)
 
-t0 = time.time()
 t_check_lc_equiv = GraphTable(12)
 g1 = nx.Graph()
 g1.add_nodes_from([i for i in range(12)])
@@ -58,5 +56,19 @@ g2.add_edges_from([(0, 1), (1, 2), (2, 3), (3, 4), (4, 5), (5, 6), (6, 7), (7, 0
 t_check_lc_equiv.init_from_graphs([g1])
 _, g2_exists, _ = t_check_lc_equiv.find_graph(g2)
 print('graphs g1, g2 are locally equivalent: ', g2_exists)
-t1 = time.time()
-print(t1 - t0)
+t4 = time.time()
+print(t4 - t3)
+
+t_check_lc_equiv = GraphTable(12)
+g1 = nx.Graph()
+g1.add_nodes_from([i for i in range(12)])
+g1.add_edges_from([(0, 1), (1, 2), (2, 3), (3, 4), (4, 5), (5, 6), (6, 7), (7, 8), (8, 9), (9, 10), (10, 11)])
+g2 = nx.Graph()
+g2.add_nodes_from([i for i in range(12)])
+g2.add_edges_from([(0, 1), (1, 2), (2, 3), (3, 4), (4, 5), (5, 6), (6, 7), (7, 8), (8, 9), (9, 10), (8, 10), (10, 11)])
+t_check_lc_equiv.init_from_graphs([g1])
+_, g2_exists, _ = t_check_lc_equiv.find_graph(g2)
+print('graphs g1, g2 are locally equivalent: ', g2_exists)
+t5 = time.time()
+print(t5 - t4)
+
