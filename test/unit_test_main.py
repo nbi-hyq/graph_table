@@ -10,12 +10,22 @@ class TestGraphTable(unittest.TestCase):
     def check_orbits(self):
         t_graph = GraphTable(4)
         t_graph.init_single_emitter_graphs(all_connected=True)
-        t_graph.generate_orbit_connections()
+        t_graph.generate_orbit_connections(measureSingle=True)
         self.assertTrue(t_graph.n_orbit == 9)
 
         t_graph = GraphTable(4)
+        t_graph.init_single_emitter_graphs(all_connected=True)
+        t_graph.generate_orbit_connections(measureSingle=False)
+        self.assertTrue(t_graph.n_orbit == 7)
+
+        t_graph = GraphTable(4)
         t_graph.init_single_emitter_graphs(all_connected=False)
-        t_graph.generate_orbit_connections()
+        t_graph.generate_orbit_connections(measureSingle=True)
+        self.assertTrue(t_graph.n_orbit == 13)
+
+        t_graph = GraphTable(4)
+        t_graph.init_single_emitter_graphs(all_connected=False)
+        t_graph.generate_orbit_connections(measureSingle=False)
         self.assertTrue(t_graph.n_orbit == 13)
 
 if __name__ == '__main__':

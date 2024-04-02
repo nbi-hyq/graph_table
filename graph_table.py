@@ -1,8 +1,6 @@
 import networkx as nx
 import numpy as np
 import copy
-import time
-import dill
 from graph_transformer import measure_single, measure_double_parity
 
 
@@ -156,7 +154,7 @@ class GraphTable:
             self.print_orbit(idx)
 
     # create connections between the orbits by measurements
-    def generate_orbit_connections(self):
+    def generate_orbit_connections(self, measureSingle=False):
         single = ['Z']
         fusion = ['XZZX']
         num_graph_init = self.n_graph
@@ -168,11 +166,12 @@ class GraphTable:
                 gr = self.l_graph[i]
                 _, _, gr_idx = self.find_graph(gr)
                 parent_orbit = self.a_graph_orbit[gr_idx]
-                for pauli in single:
-                    for n in gr.nodes:
-                        g = copy.deepcopy(gr)
-                        measure_single(g, n, pauli)
-                        self.add_orbit(g, origin=self.l_num_to_orbit[parent_orbit], link=[gr_idx, n, pauli])
+                if measureSingle:
+                    for pauli in single:
+                        for n in gr.nodes:
+                            g = copy.deepcopy(gr)
+                            measure_single(g, n, pauli)
+                            self.add_orbit(g, origin=self.l_num_to_orbit[parent_orbit], link=[gr_idx, n, pauli])
                 for f in fusion:
                     for n in gr.nodes:
                         for m in gr.nodes:
@@ -250,6 +249,8 @@ class GraphTable:
 
 
 if __name__ == '__main__':
+    import time
+    import dill
     load = False
     if load:
         dill.load_module('save_table_12_connected.pkl')
@@ -259,7 +260,7 @@ if __name__ == '__main__':
         t_graph.init_single_emitter_graphs(all_connected=True)
         t1 = time.time()
         print(t1 - t0)
-        t_graph.generate_orbit_connections()
+        t_graph.generate_orbit_connections(measureSingle=True)
         t2 = time.time()
         print(t2 - t1)
         dill.dump_module('save_table.pkl')
