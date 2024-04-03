@@ -12,6 +12,31 @@ def local_compl(g, m):
     g.add_edges_from(g_sub_c.edges())
 
 
+# convert networkx graph to dense array [num_nodes, nodes, edges], assume less than 256 nodes
+# (nx.to_scipy_sparse_array(g): issue with isolated nodes)
+def nx_to_array(g):
+    num_nodes = g.number_of_nodes()
+    arry = np.zeros(2*g.number_of_edges() + num_nodes + 1, dtype=np.uint8)
+    arry[0] = num_nodes
+    for i_n, node in enumerate(g.nodes):
+        arry[i_n+1] = node
+    for i, e in enumerate(g.edges):
+        arry[2*i+num_nodes+1] = e[0]
+        arry[2*i+num_nodes+2] = e[1]
+    return arry
+
+
+# convert dense array representation to networkx graph, assume less than 256 nodes
+# (nx.from_scipy_sparse_array(arry): issue with isolated nodes)
+def array_to_nx(arry):
+    num_nodes = arry[0]
+    g = nx.Graph()
+    g.add_nodes_from([arry[i+1] for i in range(num_nodes)])
+    n_edges = int((len(arry)-num_nodes-1)/2)
+    g.add_edges_from([(arry[2*i+num_nodes+1], arry[2*i+num_nodes+2]) for i in range(n_edges)])
+    return g
+
+
 class GraphTable:
     def __init__(self, num_node_max):
         self.num_node_max = num_node_max
@@ -50,7 +75,7 @@ class GraphTable:
         idx_graph = None
         if h in self.graph_dict.keys():
             for idx_graph in self.graph_dict[h]:
-                if nx.is_isomorphic(g, self.l_graph[idx_graph]):
+                if nx.is_isomorphic(g, array_to_nx(self.l_graph[idx_graph])):
                     isomorphic_exists = True
                     break
         return h, isomorphic_exists, idx_graph
@@ -60,7 +85,7 @@ class GraphTable:
         h, isomorphic_exists, idx_graph = self.find_graph(g)
         if isomorphic_exists:
             return isomorphic_exists, idx_graph
-        self.l_graph.append(g)
+        self.l_graph.append(nx_to_array(g))
         if h in self.graph_dict.keys():  # other graph with same hash exists
             self.graph_dict[h].append(self.n_graph)
             if len(self.graph_dict[h]) > self.len_max:
@@ -103,8 +128,8 @@ class GraphTable:
                 self.a_graph_orbit[g_idx] = i_o
 
     # initialize from list of given graphs
-    def init_from_graphs(self, l_graph):
-        for g_init in l_graph:
+    def init_from_graphs(self, l_init_graph):
+        for g_init in l_init_graph:
             self.add_orbit(g_init)
         self.get_a_graph_orbit()
 
@@ -145,7 +170,7 @@ class GraphTable:
     # print the graphs in a certain orbit
     def print_orbit(self, idx_orbit):
         for idx_gr in self.l_orbit[idx_orbit]:
-            print(self.l_graph[idx_gr].number_of_nodes(), self.l_graph[idx_gr].edges)
+            print(array_to_nx(self.l_graph[idx_gr]).number_of_nodes(), array_to_nx(self.l_graph[idx_gr]).edges)
         print('----------------------------')
 
     # print the graphs in all orbits
@@ -163,7 +188,7 @@ class GraphTable:
         while True:
             for i in range(start, num_graph_init):  # only loop over orbits that have been added in previous round
                 print(depth, i)
-                gr = self.l_graph[i]
+                gr = array_to_nx(self.l_graph[i])
                 _, _, gr_idx = self.find_graph(gr)
                 parent_orbit = self.a_graph_orbit[gr_idx]
                 if measureSingle:
@@ -192,7 +217,7 @@ class GraphTable:
             print('gr1 == gr2')
         elif self.a_graph_orbit[gr_idx1] == self.a_graph_orbit[gr_idx2]:
             idx_set = set([gr_idx1])  # to see if graph is there already
-            bfs_list = [copy.deepcopy(self.l_graph[gr_idx1])]
+            bfs_list = [array_to_nx(self.l_graph[gr_idx1])]
             root_list = [-1]  # graph index in bfs_list on which LC is applied to reach current graph
             lc_list = [-1]  # node number for local complementation
             bfs_pos = 0
@@ -225,7 +250,7 @@ class GraphTable:
     # get the graph index of the graph that is transformed by the measurement
     # link has the form [gr_idx, n_qbit, measurement] or [gr_idx, n_qbit1, n_qbit2, measurement]
     def get_measured_graph_idx(self, link):
-        g = copy.deepcopy(self.l_graph[link[0]])
+        g = array_to_nx(self.l_graph[link[0]])
         if len(link) == 3:
             measure_single(g, link[1], link[2])
         elif len(link) == 4:
@@ -242,7 +267,7 @@ class GraphTable:
                 self.find_path_in_oribit(self.get_measured_graph_idx(self.l_link_to_orbit[parent_orbit]), gr_idx)  # connections within orbit
                 print(self.l_link_to_orbit[parent_orbit])
                 gr_idx = self.l_link_to_orbit[parent_orbit][0]
-                print(self.l_graph[gr_idx].edges)
+                print(array_to_nx(self.l_graph[gr_idx]).edges)
                 parent_orbit = self.a_graph_orbit[gr_idx]
         else:
             print('graph is not in tablebase')
