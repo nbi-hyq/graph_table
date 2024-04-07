@@ -187,7 +187,7 @@ class GraphTable:
         start = 0  # where the orbits of largest depth start
         while True:
             for i in range(start, num_graph_init):  # only loop over orbits that have been added in previous round
-                print(depth, i)
+                print(depth, i, self.n_graph)
                 gr = array_to_nx(self.l_graph[i])
                 _, _, gr_idx = self.find_graph(gr)
                 parent_orbit = self.a_graph_orbit[gr_idx]

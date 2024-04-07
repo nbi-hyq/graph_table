@@ -6,7 +6,7 @@ from graph_table import *
 
 
 class TestGraphTable(unittest.TestCase):
-    def check_orbits(self):
+    def check_orbit_and_graph_num(self):
         t_graph = GraphTable(4)
         t_graph.init_single_emitter_graphs(all_connected=True)
         t_graph.generate_orbit_connections(measureSingle=True)
@@ -26,6 +26,30 @@ class TestGraphTable(unittest.TestCase):
         t_graph.init_single_emitter_graphs(all_connected=False)
         t_graph.generate_orbit_connections(measureSingle=False)
         self.assertTrue(t_graph.n_orbit == 13)
+
+        # number of orbits equals number of caterpillar graphs (since there can only be one caterpillar per orbit)
+        t_graph = GraphTable(6)
+        t_graph.init_single_emitter_graphs(all_connected=True)
+        self.assertTrue(t_graph.n_orbit == 14)
+        t_graph = GraphTable(7)
+        t_graph.init_single_emitter_graphs(all_connected=True)
+        self.assertTrue(t_graph.n_orbit == 24)
+        t_graph = GraphTable(8)
+        t_graph.init_single_emitter_graphs(all_connected=True)
+        self.assertTrue(t_graph.n_orbit == 44)
+
+        t_graph = GraphTable(3)
+        t_graph.init_single_emitter_graphs(all_connected=False)
+        self.assertTrue(t_graph.n_orbit == 6)
+        t_graph = GraphTable(4)
+        t_graph.init_single_emitter_graphs(all_connected=False)
+        self.assertTrue(t_graph.n_orbit == 12)
+        t_graph = GraphTable(5)
+        t_graph.init_single_emitter_graphs(all_connected=False)
+        self.assertTrue(t_graph.n_orbit == 22)
+        t_graph = GraphTable(6)
+        t_graph.init_single_emitter_graphs(all_connected=False)
+        self.assertTrue(t_graph.n_orbit == 42)
 
     def test_graph_compression(self):
         for n in [4, 8, 11, 17]:
@@ -57,7 +81,7 @@ class TestGraphTable(unittest.TestCase):
 
 if __name__ == '__main__':
     t = TestGraphTable()
-    t.check_orbits()
+    t.check_orbit_and_graph_num()
     t.test_graph_compression()
     t.test_nx()
 
