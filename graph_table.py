@@ -269,6 +269,9 @@ class GraphTable:
                 gr_idx = self.l_link_to_orbit[parent_orbit][0]
                 print(array_to_nx(self.l_graph[gr_idx]).edges)
                 parent_orbit = self.a_graph_orbit[gr_idx]
+            self.find_path_in_oribit(self.l_orbit[parent_orbit][0], gr_idx)  # path to branched chain at orbit start
+            gr_idx_init = self.l_orbit[parent_orbit][0]  # cannot be different caterpillar
+            print(array_to_nx(self.l_graph[gr_idx_init]).edges)
         else:
             print('graph is not in tablebase')
 
@@ -281,14 +284,14 @@ if __name__ == '__main__':
         dill.load_module('save_table_12_connected.pkl')
     else:
         t0 = time.time()
-        t_graph = GraphTable(12)
-        t_graph.init_single_emitter_graphs(all_connected=True)
+        t_graph = GraphTable(14)
+        t_graph.init_single_emitter_graphs(all_connected=False)
         t1 = time.time()
         print(t1 - t0)
-        t_graph.generate_orbit_connections(measureSingle=True)
+        t_graph.generate_orbit_connections(measureSingle=False)
         t2 = time.time()
         print(t2 - t1)
-        dill.dump_module('save_table.pkl')
+        dill.dump_module('save_table_14_unconnected_noZ.pkl')
         t_graph.print_all_orbits(start=t_graph.n_orbit-1)
         print('num_to_orbit frequencies: ', [np.sum(np.array(t_graph.l_num_to_orbit) == i) for i in range(10)])
         print('collisions max: ', t_graph.len_max)
@@ -325,19 +328,109 @@ if __name__ == '__main__':
     graph.add_nodes_from([i for i in range(6)])
     graph.add_edges_from([(0, 1), (1, 2), (2, 3), (3, 4), (4, 0), (0, 5), (1, 5), (2, 5), (3, 5), (4, 5)])
     t_new.back_trace(graph)
-    print('8-qubit RGS: ================================')
-    graph = nx.Graph()
-    graph.add_nodes_from([i for i in range(8)])
-    graph.add_edges_from([(0, 1), (1, 2), (2, 3), (3, 0), (0, 2), (1, 3), (0, 4), (1, 5), (2, 6), (3, 7)])
-    t_new.back_trace(graph)
-    print('7-qubit code: ================================')
+    print('6+1 code: ================================')
     graph = nx.Graph()
     graph.add_nodes_from([i for i in range(7)])
     graph.add_edges_from([(0, 1), (1, 2), (2, 3), (3, 4), (4, 5), (5, 0), (0, 6), (3, 6)])
     t_new.back_trace(graph)
-    print('7+1 code from  https://doi.org/10.48550/arXiv.2212.04834 Fig. S3: ================================')
+    print('7+1 (FBQC) code from  https://doi.org/10.48550/arXiv.2212.04834 Fig. S3: ================================')
     graph = nx.Graph()
     graph.add_nodes_from([i for i in range(8)])
     graph.add_edges_from([(0, 1), (1, 2), (2, 3), (3, 4), (4, 5), (5, 0), (0, 6), (1, 6), (3, 6), (4, 6), (2, 7), (5, 7)])
     t_new.back_trace(graph)
+    print('8+1 (FBQC) code from  https://doi.org/10.48550/arXiv.2212.04834 Fig. S3: ================================')
+    graph = nx.Graph()
+    graph.add_nodes_from([i for i in range(9)])
+    graph.add_edges_from([(0, 1), (1, 2), (2, 3), (3, 4), (4, 5), (5, 6), (6, 0), (0, 7), (3, 7), (4, 7), (2, 8), (5, 8)])
+    t_new.back_trace(graph)
+    print('9+1 (FBQC) code from  https://doi.org/10.48550/arXiv.2212.04834 Fig. S3: ================================')
+    graph = nx.Graph()
+    graph.add_nodes_from([i for i in range(10)])
+    graph.add_edges_from([(0, 1), (1, 2), (2, 3), (3, 4), (4, 5), (5, 6), (6, 0), (0, 7), (3, 7), (4, 7), (2, 8), (5, 8), (1, 9)])
+    t_new.back_trace(graph)
+    print('10+1 (FBQC) code from  https://doi.org/10.48550/arXiv.2212.04834 Fig. S3: ================================')
+    graph = nx.Graph()
+    graph.add_nodes_from([i for i in range(11)])
+    graph.add_edges_from([(0, 1), (1, 2), (2, 3), (3, 4), (4, 5), (5, 6), (6, 7), (7, 8), (7, 9), (0, 8), (0, 9), (1, 8), (6, 9), (8, 10), (9, 10), (2, 10), (5, 10)])
+    t_new.back_trace(graph)
+    print('cube with one leaf')
+    g_cube = nx.Graph()
+    g_cube.add_nodes_from([i for i in range(9)])
+    g_cube.add_edges_from([(0, 1), (1, 3), (3, 2), (0, 2), (4, 5), (5, 7), (7, 6), (4, 6), (0, 4), (1, 5), (2, 6), (3, 7), (0, 8)])
+    t_new.back_trace(g_cube)
+    print('from https://doi.org/10.48550/arXiv.2212.04834 Fig. S3: bottom right 7+1 ================================')
+    graph = nx.Graph()
+    graph.add_nodes_from([i for i in range(8)])
+    graph.add_edges_from([(0, 1), (1, 2), (2, 3), (3, 4), (0, 4), (0, 5), (3, 5), (0, 6), (3, 7)])
+    t_new.back_trace(graph)
+    print('from https://doi.org/10.48550/arXiv.2212.04834 Fig. S3: bottom right 8+1 ================================')
+    graph = nx.Graph()
+    graph.add_nodes_from([i for i in range(9)])
+    graph.add_edges_from([(0, 1), (1, 2), (2, 3), (3, 4), (4, 5), (5, 6), (6, 0), (0, 7), (2, 7), (5, 7), (2, 8), (5, 8)])
+    t_new.back_trace(graph)
+    print('from https://doi.org/10.48550/arXiv.2212.04834 Fig. S3: bottom right 9+1 ================================')
+    graph = nx.Graph()
+    graph.add_nodes_from([i for i in range(10)])
+    graph.add_edges_from([(0, 1), (1, 2), (2, 3), (3, 4), (0, 4), (0, 5), (3, 5), (0, 6), (3, 7), (0, 8), (3, 9)])
+    t_new.back_trace(graph)
 
+    # repeater graphs
+    for n_qubits in range(6, 14, 2):
+        print("repeater graph, number of qubits: ", n_qubits)
+        half = int(n_qubits / 2)
+        graph = nx.Graph()
+        graph.add_nodes_from([i for i in range(n_qubits)])
+        lEdge = [(i, i + half) for i in range(half)]
+        for i in range(half):
+            for j in range(i + 1, half):
+                lEdge.append((i, j))
+        graph.add_edges_from(lEdge)
+        t_new.back_trace(graph)
+
+    # crazy graphs
+    for n_layer in range(1, 5):
+        for size_layer in range(2, 10):
+            print("n_layer, size_layer: ", n_layer, size_layer)
+            graph = nx.Graph()
+            graph.add_nodes_from([i for i in range(n_layer * size_layer + 2)])
+            graph.add_edges_from([(i, n_layer * size_layer) for i in range(size_layer)])  # input
+            graph.add_edges_from([(i + size_layer * (n_layer - 1), n_layer * size_layer + 1) for i in range(size_layer)])  # output
+            for layer in range(n_layer - 1):
+                graph.add_edges_from([(i + layer * size_layer, j + (layer + 1) * size_layer) for j in range(size_layer) for i in range(size_layer)])
+            t_new.back_trace(graph)
+
+    # the 5 orbits that need 3 fusions
+    graph = nx.Graph()
+    graph.add_nodes_from([1, 11, 7, 12, 3, 13, 5, 10])
+    graph.add_edges_from([(1, 7), (1, 12), (1, 10), (3, 11), (3, 13), (3, 5), (5, 7), (5, 11), (7, 13), (10, 13), (10, 12), (11, 12)])
+    t_new.back_trace(graph)
+    nx.draw(graph)
+    graph = nx.Graph()
+    graph.add_nodes_from([1, 4, 6, 7, 9, 10, 3, 11])
+    graph.add_edges_from([(1, 4), (1, 6), (1, 7), (1, 9), (1, 10), (3, 9), (3, 4), (3, 7), (4, 11), (6, 7), (6, 11), (9, 10), (10, 11)])
+    t_new.back_trace(graph)
+    nx.draw(graph)
+    graph = nx.Graph()
+    graph.add_nodes_from([1, 4, 6, 7, 13, 3, 9, 11])
+    graph.add_edges_from([(1, 4), (1, 6), (1, 7), (1, 13), (3, 4), (3, 7), (3, 9), (4, 11), (6, 11), (6, 7), (9, 11), (9, 13), (11, 13)])
+    t_new.back_trace(graph)
+    nx.draw(graph)
+    graph = nx.Graph()
+    graph.add_nodes_from([1, 9, 7, 3, 6, 10, 4, 11])
+    graph.add_edges_from([(1, 9), (1, 7), (1, 3), (3, 6), (3, 10), (4, 9), (4, 11), (4, 7), (6, 9), (6, 11), (7, 10), (7, 9), (10, 11)])
+    t_new.back_trace(graph)
+    nx.draw(graph)
+    graph = nx.Graph()
+    graph.add_nodes_from([1, 9, 3, 7, 10, 6, 4, 11])
+    graph.add_edges_from([(1, 9), (1, 3), (1, 7), (3, 10), (3, 6), (4, 9), (4, 11), (4, 7), (6, 9), (6, 11), (7, 10), (10, 11)])
+    t_new.back_trace(graph)
+    nx.draw(graph)
+
+    # count number of connected graph orbits with certain number of nodes
+    cnt_connected = [0 for _ in range(14)]
+    for i_orbit in range(t_new.n_orbit):
+        i_gr = t_new.l_orbit[i_orbit][0]  # take one graph from orbit
+        gr0 = array_to_nx(t_new.l_graph[i_gr])
+        if len(t_new.l_graph[i_gr]) > 1 and nx.is_connected(gr0):
+            cnt_connected[gr0.number_of_nodes() - 1] += 1
+    print(cnt_connected)
