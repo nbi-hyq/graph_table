@@ -323,11 +323,6 @@ if __name__ == '__main__':
     graph.add_nodes_from([i for i in range(5)])
     graph.add_edges_from([(0, 1), (1, 2), (2, 3), (3, 4), (4, 0)])
     t_new.back_trace(graph)
-    print('5-ring wheel: ================================')
-    graph = nx.Graph()
-    graph.add_nodes_from([i for i in range(6)])
-    graph.add_edges_from([(0, 1), (1, 2), (2, 3), (3, 4), (4, 0), (0, 5), (1, 5), (2, 5), (3, 5), (4, 5)])
-    t_new.back_trace(graph)
     print('6+1 code: ================================')
     graph = nx.Graph()
     graph.add_nodes_from([i for i in range(7)])
@@ -398,6 +393,15 @@ if __name__ == '__main__':
             for layer in range(n_layer - 1):
                 graph.add_edges_from([(i + layer * size_layer, j + (layer + 1) * size_layer) for j in range(size_layer) for i in range(size_layer)])
             t_new.back_trace(graph)
+    # wheel graphs
+    for size in range(4, 13):
+        print("wheel graph size: ", size)
+        graph = nx.Graph()
+        graph.add_nodes_from([i for i in range(size)])
+        graph.add_edges_from([(i, i+1) for i in range(1, size - 1)] + [(1, size - 1)])
+        graph.add_edges_from([(0, i) for i in range(1, size)])
+        t_new.back_trace(graph)
+        nx.draw(graph)
 
     # the 5 orbits that need 3 fusions
     graph = nx.Graph()
