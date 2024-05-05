@@ -438,3 +438,15 @@ if __name__ == '__main__':
         if len(t_new.l_graph[i_gr]) > 1 and nx.is_connected(gr0):
             cnt_connected[gr0.number_of_nodes() - 1] += 1
     print(cnt_connected)
+
+    # filter graphs that require a certain number of fusions
+    num_fusion = 2
+    cnt2 = 0
+    for i_orbit in range(t_new.n_orbit):
+        i_gr = t_new.l_orbit[i_orbit][0]  # take one graph from orbit
+        gr0 = array_to_nx(t_new.l_graph[i_gr])
+        if len(t_new.l_graph[i_gr]) > 1 and nx.is_connected(gr0) and t_new.l_num_to_orbit[i_orbit] == num_fusion:
+            cnt2 += 1
+            print(gr0.edges)
+    print(cnt2)
+
