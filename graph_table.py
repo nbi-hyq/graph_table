@@ -430,6 +430,20 @@ if __name__ == '__main__':
     t_new.back_trace(graph)
     nx.draw(graph)
 
+    # best 1-fusion graph (code)
+    graph = nx.Graph()
+    graph.add_nodes_from([i for i in range(10)])
+    graph.add_edges_from([(0, 1), (0, 2), (0, 3), (0, 4), (0, 5), (1, 6), (1, 7), (2, 6), (2, 9), (4, 6), (5, 6), (6, 7), (6, 8)])
+    t_new.back_trace(graph)
+    nx.draw(graph)
+
+    # best 2-fusion graph (code)
+    graph = nx.Graph()
+    graph.add_nodes_from([i for i in range(10)])
+    graph.add_edges_from([(0, 1), (1, 2), (2, 3), (3, 4), (4, 5), (0, 5), (0, 8), (3, 9), (0, 6), (0, 7), (3, 6), (3, 7)])
+    t_new.back_trace(graph)
+    nx.draw(graph)
+
     # count number of connected graph orbits with certain number of nodes
     cnt_connected = [0 for _ in range(14)]
     for i_orbit in range(t_new.n_orbit):
@@ -439,14 +453,21 @@ if __name__ == '__main__':
             cnt_connected[gr0.number_of_nodes() - 1] += 1
     print(cnt_connected)
 
-    # filter graphs that require a certain number of fusions
-    num_fusion = 2
+    # filter graphs that require a certain number of fusions (chose the one with the fewest edges in each orbit)
+    num_fusion = 3
     cnt2 = 0
     for i_orbit in range(t_new.n_orbit):
-        i_gr = t_new.l_orbit[i_orbit][0]  # take one graph from orbit
-        gr0 = array_to_nx(t_new.l_graph[i_gr])
-        if len(t_new.l_graph[i_gr]) > 1 and nx.is_connected(gr0) and t_new.l_num_to_orbit[i_orbit] == num_fusion:
-            cnt2 += 1
-            print(gr0.edges)
+        if t_new.l_num_to_orbit[i_orbit] == num_fusion:
+            i_gr = t_new.l_orbit[i_orbit][0]  # pick one graph from orbit for initial filtering
+            gr0 = array_to_nx(t_new.l_graph[i_gr])
+            if len(t_new.l_graph[i_gr]) > 1 and nx.is_connected(gr0):
+                cnt2 += 1
+                n_edges_min = np.inf
+                for i_gr in t_new.l_orbit[i_orbit]:  # find the graph in the orbit that has the fewest edges
+                    gr0 = array_to_nx(t_new.l_graph[i_gr])
+                    if gr0.number_of_edges() < n_edges_min:
+                        n_edges_min = gr0.number_of_edges()
+                        grSelected = copy.deepcopy(gr0)
+                print(grSelected.edges)
     print(cnt2)
 
