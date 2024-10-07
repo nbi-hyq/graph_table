@@ -29,10 +29,10 @@ def nx_to_array(g):
 # convert dense array representation to networkx graph, assume less than 256 nodes
 # (nx.from_scipy_sparse_array(arry): issue with isolated nodes)
 def array_to_nx(arry):
-    num_nodes = arry[0]
+    num_nodes = int(arry[0])
     g = nx.Graph()
     g.add_nodes_from([arry[i+1] for i in range(num_nodes)])
-    n_edges = int(len(arry)-int(num_nodes)-1) // 2
+    n_edges = (len(arry)-num_nodes-1) // 2
     g.add_edges_from([(arry[2*i+num_nodes+1], arry[2*i+num_nodes+2]) for i in range(n_edges)])
     return g
 
