@@ -460,8 +460,17 @@ if __name__ == '__main__':
                 print(grSelected.edges)
     print(cnt2)
 
-    # for all connected graphs up to a certain size, compare no. fusions and required no. emitters (height function)
-    print('no. fusions vs height function ---------------------')
+    # check if connected graph nodes are fused
+    print('search fusing connected qubits -----------------------')
+    for link in t_new.l_link_to_orbit:
+        if link:
+            gr_idx = link[0]
+            l_edges = array_to_nx(t_new.l_graph[gr_idx]).edges
+            if (link[2], link[1]) in l_edges or (link[1], link[2]) in l_edges:
+                print('connected fused', link, l_edges)
+
+    # for all connected graphs up to a certain size, compare no. fusions and required no. emitters (height function), compute minimum climb count
+    print('no. fusions vs height function, climb count ---------------------')
     import ctypes
     lib_graph = ctypes.cdll.LoadLibrary('build/libHeightFunction.so')  # needs to be compiled before
     def get_edges_from_nx_graph(gr):  # get edges as 2d array from networkx graph
@@ -478,8 +487,9 @@ if __name__ == '__main__':
             arr_edges[i + len(l_edges)] = e[1]
         return arr_edges
 
-    num_nodes_max = 8
-    print('#nodes, #fusions + 1 (emitter), #emitters, edges')
+    num_nodes_max = 10  # checked up to 10 that bounds are satisfied
+    n_emitter = 1
+    minVal = np.zeros(1, dtype=np.int32)
     for i_orbit in range(t_new.n_orbit):
         i_gr = t_new.l_orbit[i_orbit][0]  # take one graph from orbit
         gr0 = array_to_nx(t_new.l_graph[i_gr])
@@ -492,10 +502,20 @@ if __name__ == '__main__':
                     grSelected = copy.deepcopy(gr1)
             order_best = np.zeros(grSelected.number_of_nodes(), dtype=np.int32)
             height_fun = np.zeros(grSelected.number_of_nodes() + 1, dtype=np.int32)
+            height_fun2 = np.zeros(grSelected.number_of_nodes() + 1, dtype=np.int32)
             edges = get_edges_from_nx_graph(grSelected)
             lib_graph.collect_graph_getMinHeightOrderFast(ctypes.c_int(grSelected.number_of_nodes()),
                                                           ctypes.c_int(grSelected.number_of_edges()),
                                                           ctypes.c_void_p(order_best.ctypes.data),
                                                           ctypes.c_void_p(edges.ctypes.data),
                                                           ctypes.c_void_p(height_fun.ctypes.data))
-            print(grSelected.number_of_nodes(), t_new.l_num_to_orbit[i_orbit] + 1, max(height_fun), grSelected.edges)
+            lib_graph.collect_graph_get_min_climb_count_order(ctypes.c_int(grSelected.number_of_nodes()),
+                                                              ctypes.c_int(grSelected.number_of_edges()),
+                                                              ctypes.c_void_p(order_best.ctypes.data),
+                                                              ctypes.c_void_p(edges.ctypes.data),
+                                                              ctypes.c_void_p(height_fun2.ctypes.data),
+                                                              ctypes.c_void_p(minVal.ctypes.data),
+                                                              ctypes.c_uint8(n_emitter))
+            #print('#fusion', t_new.l_num_to_orbit[i_orbit], '#emitters', max(height_fun), 'upper bound', minVal[0])
+            if not max(height_fun) - 1 <= t_new.l_num_to_orbit[i_orbit] <= minVal[0]:
+                print('bound violated', '#fusion', t_new.l_num_to_orbit[i_orbit], '#emitters', max(height_fun), 'upper bound', minVal[0], grSelected.edges)
