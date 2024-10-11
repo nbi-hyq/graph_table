@@ -1,8 +1,11 @@
+import matplotlib.pyplot as plt
 import networkx as nx
 import numpy as np
 import copy
 from graph_transformer import measure_single, measure_double_parity
 
+
+#### load computed lookup table and analyze several graphs #############################################################
 
 # locally complement a graph at node m
 def local_compl(g, m):
@@ -279,25 +282,10 @@ class GraphTable:
 if __name__ == '__main__':
     import time
     import dill
-    load = False
-    if load:
-        dill.load_module('save_table_14_unconnected_noZ.pkl')
-    else:
-        t0 = time.time()
-        t_graph = GraphTable(14)
-        t_graph.init_single_emitter_graphs(all_connected=False)
-        t1 = time.time()
-        print(t1 - t0)
-        t_graph.generate_orbit_connections(measureSingle=False)
-        t2 = time.time()
-        print(t2 - t1)
-        dill.dump_module('save_table_14_unconnected_noZ.pkl')
-        t_graph.print_all_orbits(start=t_graph.n_orbit-1)
-        print('num_to_orbit frequencies: ', [np.sum(np.array(t_graph.l_num_to_orbit) == i) for i in range(10)])
-        print('collisions max: ', t_graph.len_max)
+    dill.load_module('save_table_14_unconnected_noZ.pkl')
 
     # make sure the GraphTable object uses the methods defined in this file and not the pickled ones
-    from graph_table import *
+    from graph_table_load import *
     t_new = GraphTable(0)
     for v in vars(t_graph).keys():
         exec('t_new.' + v + '= t_graph.' + v)
@@ -324,6 +312,10 @@ if __name__ == '__main__':
     graph.add_edges_from([(0, 1), (1, 2), (2, 3), (3, 4), (4, 5), (5, 0), (0, 6), (3, 6)])
     t_new.back_trace(graph)
     print('7+1 (FBQC) code from  https://doi.org/10.48550/arXiv.2212.04834 Fig. S3: ================================')
+    graph = nx.Graph()
+    graph.add_edges_from([(0, 1), (1, 2), (2, 3), (3, 4), (4, 5), (5, 0), (0, 6), (1, 6), (3, 6), (4, 6), (2, 7), (5, 7), (6, 7)])
+    t_new.back_trace(graph)
+    print('graph from our Fig. 1')
     graph = nx.Graph()
     graph.add_edges_from([(0, 1), (1, 2), (2, 3), (3, 4), (4, 5), (5, 0), (0, 6), (1, 6), (3, 6), (4, 6), (2, 7), (5, 7)])
     t_new.back_trace(graph)
@@ -425,6 +417,7 @@ if __name__ == '__main__':
     nx.draw(graph)
 
     # count number of connected graph orbits with certain number of nodes
+    print('count connected graph orbits --------------------------')
     cnt_connected = [0 for _ in range(14)]
     for i_orbit in range(t_new.n_orbit):
         i_gr = t_new.l_orbit[i_orbit][0]  # take one graph from orbit
@@ -432,8 +425,24 @@ if __name__ == '__main__':
         if len(t_new.l_graph[i_gr]) > 1 and nx.is_connected(gr0):
             cnt_connected[gr0.number_of_nodes() - 1] += 1
     print(cnt_connected)
+    
+    # print one graph from all graph orbits with certain number of nodes
+    print('print one graph per orbit (no. nodes fixed) --------------------')
+    num_nodes = 6
+    for i_orbit in range(t_new.n_orbit):
+        i_gr = t_new.l_orbit[i_orbit][0]  # pick one graph from orbit for initial filtering
+        gr0 = array_to_nx(t_new.l_graph[i_gr])
+        if len(t_new.l_graph[i_gr]) > 1 and gr0.number_of_nodes() == num_nodes and nx.is_connected(gr0):
+            n_edges_min = np.inf
+            for i_gr in t_new.l_orbit[i_orbit]:  # find the graph in the orbit that has the fewest edges
+                gr0 = array_to_nx(t_new.l_graph[i_gr])
+                if gr0.number_of_edges() < n_edges_min:
+                    n_edges_min = gr0.number_of_edges()
+                    grSelected = copy.deepcopy(gr0)
+            print(i_orbit, grSelected.edges)
 
     # filter graphs that require a certain number of fusions (chose the one with the fewest edges in each orbit)
+    print('print graphs that require a certain number of fusions -----------------------')
     num_fusion = 3
     cnt2 = 0
     for i_orbit in range(t_new.n_orbit):
@@ -451,3 +460,62 @@ if __name__ == '__main__':
                 print(grSelected.edges)
     print(cnt2)
 
+    # check if connected graph nodes are fused
+    print('search fusing connected qubits -----------------------')
+    for link in t_new.l_link_to_orbit:
+        if link:
+            gr_idx = link[0]
+            l_edges = array_to_nx(t_new.l_graph[gr_idx]).edges
+            if (link[2], link[1]) in l_edges or (link[1], link[2]) in l_edges:
+                print('connected fused', link, l_edges)
+
+    # for all connected graphs up to a certain size, compare no. fusions and required no. emitters (height function), compute minimum climb count
+    print('no. fusions vs height function, climb count ---------------------')
+    import ctypes
+    lib_graph = ctypes.cdll.LoadLibrary('build/libHeightFunction.so')  # needs to be compiled before
+    def get_edges_from_nx_graph(gr):  # get edges as 2d array from networkx graph
+        # make sure node numbering is 0,1,2... (required for height function library)
+        node_srt = list(gr.nodes)
+        node_srt.sort()
+        dict_relabel = dict(zip(node_srt, [i for i in range(gr.number_of_nodes())]))
+        gr_relabeled = nx.relabel_nodes(gr, dict_relabel)
+        # bring edges into required format
+        l_edges = [e for e in gr_relabeled.edges]
+        arr_edges = np.zeros(2 * len(l_edges), dtype=np.int32)
+        for i, e in enumerate(l_edges):
+            arr_edges[i] = e[0]
+            arr_edges[i + len(l_edges)] = e[1]
+        return arr_edges
+
+    num_nodes_max = 10  # checked up to 10 that bounds are satisfied
+    n_emitter = 1
+    minVal = np.zeros(1, dtype=np.int32)
+    for i_orbit in range(t_new.n_orbit):
+        i_gr = t_new.l_orbit[i_orbit][0]  # take one graph from orbit
+        gr0 = array_to_nx(t_new.l_graph[i_gr])
+        if len(t_new.l_graph[i_gr]) > 2 and nx.is_connected(gr0) and gr0.number_of_nodes() <= num_nodes_max:
+            n_edges_min = np.inf
+            for i_gr in t_new.l_orbit[i_orbit]:  # find the graph in the orbit that has the fewest edges
+                gr1 = array_to_nx(t_new.l_graph[i_gr])
+                if gr1.number_of_edges() < n_edges_min:
+                    n_edges_min = gr1.number_of_edges()
+                    grSelected = copy.deepcopy(gr1)
+            order_best = np.zeros(grSelected.number_of_nodes(), dtype=np.int32)
+            height_fun = np.zeros(grSelected.number_of_nodes() + 1, dtype=np.int32)
+            height_fun2 = np.zeros(grSelected.number_of_nodes() + 1, dtype=np.int32)
+            edges = get_edges_from_nx_graph(grSelected)
+            lib_graph.collect_graph_getMinHeightOrderFast(ctypes.c_int(grSelected.number_of_nodes()),
+                                                          ctypes.c_int(grSelected.number_of_edges()),
+                                                          ctypes.c_void_p(order_best.ctypes.data),
+                                                          ctypes.c_void_p(edges.ctypes.data),
+                                                          ctypes.c_void_p(height_fun.ctypes.data))
+            lib_graph.collect_graph_get_min_climb_count_order(ctypes.c_int(grSelected.number_of_nodes()),
+                                                              ctypes.c_int(grSelected.number_of_edges()),
+                                                              ctypes.c_void_p(order_best.ctypes.data),
+                                                              ctypes.c_void_p(edges.ctypes.data),
+                                                              ctypes.c_void_p(height_fun2.ctypes.data),
+                                                              ctypes.c_void_p(minVal.ctypes.data),
+                                                              ctypes.c_uint8(n_emitter))
+            #print('#fusion', t_new.l_num_to_orbit[i_orbit], '#emitters', max(height_fun), 'upper bound', minVal[0])
+            if not max(height_fun) - 1 <= t_new.l_num_to_orbit[i_orbit] <= minVal[0]:
+                print('bound violated', '#fusion', t_new.l_num_to_orbit[i_orbit], '#emitters', max(height_fun), 'upper bound', minVal[0], grSelected.edges)
