@@ -3,6 +3,8 @@ import networkx as nx
 import numpy as np
 import copy
 from graph_transformer import measure_single, measure_double_parity
+import time
+import random
 
 
 #### load computed lookup table and analyze several graphs #############################################################
@@ -461,13 +463,49 @@ if __name__ == '__main__':
     print(cnt2)
 
     # check if connected graph nodes are fused
-    print('search fusing connected qubits -----------------------')
-    for link in t_new.l_link_to_orbit:
+    print('search cases of fusing connected qubits -----------------------')
+    cnt = 0
+    for i, link in enumerate(t_new.l_link_to_orbit):
         if link:
             gr_idx = link[0]
             l_edges = array_to_nx(t_new.l_graph[gr_idx]).edges
-            if (link[2], link[1]) in l_edges or (link[1], link[2]) in l_edges:
-                print('connected fused', link, l_edges)
+            if (link[2], link[1]) in l_edges or (link[1], link[2]) in l_edges:  # check connected fusion qubits
+                idx_result = t_new.get_measured_graph_idx(link)
+                fig, ax = plt.subplots()
+                g = array_to_nx(t_new.l_graph[idx_result])
+                print(cnt, '), #f to current orbit', t_new.l_num_to_orbit[i], 'num nodes target graph: ', g.number_of_nodes(), 'link: ', link, 'parent graph: ', l_edges)
+                nx.draw_networkx(g, ax=ax)
+                #plt.savefig(str(cnt) + '.pdf')
+                plt.close()
+                cnt += 1
+
+    # estimate average and worst-case lookup time
+    a_time_sum = np.zeros(15, dtype=np.float)
+    a_time_worst = np.zeros(15, dtype=np.float)
+    a_cnt = np.zeros(15, dtype=np.int32)
+    for i_orbit in range(t_new.n_orbit):
+        orbit_size = len(t_new.l_orbit[i_orbit])
+        r = random.randint(0, orbit_size-1)
+        i_gr = t_new.l_orbit[i_orbit][r]  # pick one random graph from orbit
+        gr0 = array_to_nx(t_new.l_graph[i_gr])
+        nnodes = gr0.number_of_nodes()
+        t0 = time.time()
+        t_new.back_trace(gr0)
+        tall = time.time() - t0
+        a_time_sum[nnodes] += tall
+        a_cnt[nnodes] += 1
+        if a_time_worst[nnodes] < tall:
+            a_time_worst[nnodes] = tall
+    plt.plot(a_time_sum / a_cnt)
+    #plt.plot(a_time_worst)
+    plt.xlabel('# nodes')
+    plt.ylabel('average lookup time (s)')
+    plt.show()
+    plt.semilogy(a_time_sum / a_cnt)
+    plt.semilogy(a_time_worst)
+    plt.xlabel('# nodes')
+    plt.ylabel('average lookup time (s)')
+    plt.show()
 
     # for all connected graphs up to a certain size, compare no. fusions and required no. emitters (height function), compute minimum climb count
     print('no. fusions vs height function, climb count ---------------------')
