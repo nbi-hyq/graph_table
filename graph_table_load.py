@@ -3,6 +3,7 @@ import networkx as nx
 import numpy as np
 import copy
 from graph_transformer import measure_single, measure_double_parity
+from graph_transformer_with_clifford import measure_double_parity_with_clifford
 import time
 import random
 
@@ -40,6 +41,17 @@ def array_to_nx(arry):
     n_edges = (len(arry)-num_nodes-1) // 2
     g.add_edges_from([(arry[2*i+num_nodes+1], arry[2*i+num_nodes+2]) for i in range(n_edges)])
     return g
+
+
+# print fusion with local Clifford gates that need to be applied afterward to back to a graph state
+def print_fusion_with_gates_afterwards(gr_input, fusion_link):
+    nx.set_node_attributes(gr_input, '', 'LC')
+    measure_double_parity_with_clifford(gr_input, fusion_link[1], fusion_link[2], fusion_link[3])
+    l_gates = []
+    for n in gr_input.nodes:
+        if not gr_input.nodes[n]['LC'] == '':
+            l_gates.append(gr_input.nodes[n]['LC'] + '^{-1}_' + str(n))
+    print(fusion_link, l_gates)
 
 
 class GraphTable:
@@ -252,6 +264,7 @@ class GraphTable:
         else:
             print('graphs not in same orbit')
 
+
     # get the graph index of the graph that is transformed by the measurement
     # link has the form [gr_idx, n_qbit, measurement] or [gr_idx, n_qbit1, n_qbit2, measurement]
     def get_measured_graph_idx(self, link):
@@ -273,8 +286,14 @@ class GraphTable:
                 idx_orbit_entry = self.get_measured_graph_idx(self.l_link_to_orbit[my_orbit])
                 self.find_path_in_oribit(idx_orbit_entry, gr_idx)  # LC path from gr_idx to orbit entry point
                 print(array_to_nx(self.l_graph[idx_orbit_entry]).edges)  # print graph at orbit entry point
-                print(self.l_link_to_orbit[my_orbit])  # print fusion link
                 gr_idx = self.l_link_to_orbit[my_orbit][0]  # move on to graph in upstream orbit from where my_orbit is reached by one fusion
+                gr_upstream = array_to_nx(self.l_graph[gr_idx])
+                if (self.l_link_to_orbit[my_orbit][3] == 'XZZX'
+                        and (self.l_link_to_orbit[my_orbit][1], self.l_link_to_orbit[my_orbit][2]) not in gr_upstream.edges
+                        and (self.l_link_to_orbit[my_orbit][2], self.l_link_to_orbit[my_orbit][1]) not in gr_upstream.edges):  # no additional local Clifford gates in this case
+                    print(self.l_link_to_orbit[my_orbit])  # print fusion link
+                else:
+                    print_fusion_with_gates_afterwards(gr_upstream, self.l_link_to_orbit[my_orbit])
                 print(array_to_nx(self.l_graph[gr_idx]).edges)  # print graph in upstream orbit
                 my_orbit = self.a_graph_orbit[gr_idx]  # move on to upstream orbit containing the new gr_idx graph
             self.find_path_in_oribit(self.l_orbit[my_orbit][0], gr_idx)  # path to branched chain (always at index 0)
@@ -474,12 +493,9 @@ if __name__ == '__main__':
             l_edges = array_to_nx(t_new.l_graph[gr_idx]).edges
             if (link[2], link[1]) in l_edges or (link[1], link[2]) in l_edges:  # check connected fusion qubits
                 idx_result = t_new.get_measured_graph_idx(link)
-                fig, ax = plt.subplots()
                 g = array_to_nx(t_new.l_graph[idx_result])
                 print(cnt, '), #f to current orbit', t_new.l_num_to_orbit[i], 'num nodes target graph: ', g.number_of_nodes(), 'link: ', link, 'parent graph: ', l_edges)
-                nx.draw_networkx(g, ax=ax)
-                #plt.savefig(str(cnt) + '.pdf')
-                plt.close()
+                t_new.back_trace(g)
                 cnt += 1
 
     # estimate average and worst-case lookup time
