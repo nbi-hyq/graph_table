@@ -1,12 +1,12 @@
 # graph_table
-This code can be used for using/computing a lookup table for graph-state generation protocols. It is assumed that a single quantum emitter with a spin can be employed to generate initial graph states with the structure of so-called [caterpillar trees](https://en.wikipedia.org/wiki/Caterpillar_tree). Linear optics type-II fusions are then applied to these initial caterpillar tree graph states to generate a desired target state. With the lookup table, you can find a protocol for generating a target graph state with a minimum number of fusions.
+This code can be used for using/computing a lookup table for graph-state generation protocols. It is assumed that a single quantum emitter with a spin generates initial graph states with the structure of so-called [caterpillar trees](https://en.wikipedia.org/wiki/Caterpillar_tree). Then, linear optics type-II fusions are applied to these caterpillar tree graph states to generate a desired target state. With the lookup table, you can find a protocol for generating a target graph state with a minimum number of fusions.
 
 # background
-- A single quantum emitter one can generate photonic graph states with a caterpillar structure: https://doi.org/10.1103/PhysRevLett.103.113602
+- A single quantum emitter can generate photonic graph states with a caterpillar structure: https://doi.org/10.1103/PhysRevLett.103.113602
 - Linear optics type-II fusions and effect on graph states: https://doi.org/10.1103/PhysRevLett.95.010501, https://doi.org/10.48550/arXiv.2405.02414
 
 # getting started, source code
-- Use ```graph_table_load.py``` to load the lookup table from a ```.pkl```-file and find graph-state constructions. Before running this script, download the ```.pkl```-file that contains the lookup table from ***. To use the lookup table interactively, load it e.g. in the debug mode. Use a system with ar least ```32GB``` of RAM.
+- Use ```graph_table_load.py``` to load the lookup table from a ```.pkl```-file and find graph-state constructions. Before running this script, download the ```.pkl```-file that contains the lookup table from ***. To use the lookup table interactively, load it e.g. in the debug mode. Use a system with at least ```32GB``` of RAM.
 
 - ```graph_table.py``` contains code that can be used to compute the lookup table from scratch (takes very long).
 - ```graph_transformer_with_clifford.py/graph_transformer.py```: graph transformations from https://github.com/nbi-hyq/FusionGraphTransformer with/without considering local Clifford gates that make a state a stabilizer state which is not a graph state.
