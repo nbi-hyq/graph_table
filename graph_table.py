@@ -46,7 +46,7 @@ def print_fusion_with_gates_afterwards(gr_input, fusion_link):
     for n in gr_input.nodes:
         if not gr_input.nodes[n]['LC'] == '':
             l_gates.append(gr_input.nodes[n]['LC'] + '^{-1}_' + str(n))
-    print(fusion_link, l_gates)
+    print(fusion_link[1:], l_gates)
 
 
 class GraphTable:
@@ -255,7 +255,7 @@ class GraphTable:
             while pos > 0:
                 path.append(lc_list[pos])
                 pos = root_list[pos]
-            print('LC-path: ', list(reversed(path)))
+            print('LC: ', list(reversed(path)))
         else:
             print('graphs not in same orbit')
 
@@ -285,7 +285,7 @@ class GraphTable:
                 if (self.l_link_to_orbit[my_orbit][3] == 'XZZX'
                         and (self.l_link_to_orbit[my_orbit][1], self.l_link_to_orbit[my_orbit][2]) not in gr_upstream.edges
                         and (self.l_link_to_orbit[my_orbit][2], self.l_link_to_orbit[my_orbit][1]) not in gr_upstream.edges):  # no additional local Clifford gates in this case
-                    print(self.l_link_to_orbit[my_orbit])  # print fusion link
+                    print(self.l_link_to_orbit[my_orbit][1:])  # print fusion link
                 else:
                     print_fusion_with_gates_afterwards(gr_upstream, self.l_link_to_orbit[my_orbit])
                 print(array_to_nx(self.l_graph[gr_idx]).edges)  # print graph in upstream orbit
