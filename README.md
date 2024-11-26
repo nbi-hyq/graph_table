@@ -6,10 +6,8 @@ This code can be used for using/computing a lookup table for graph-state generat
 - Linear optics type-II fusions and effect on graph states: https://doi.org/10.1103/PhysRevLett.95.010501, https://doi.org/10.48550/arXiv.2405.02414
 
 # getting started, source code
-- Use ```graph_table_load.py``` to load the lookup table from a ```.pkl```-file and find graph-state constructions. Before running this script, download the ```.pkl```-file that contains the lookup table from ***. To use the lookup table interactively, load it e.g. in the debug mode. Use a system with at least ```32GB``` of RAM.
-
+- Use ```graph_table_load.py``` to load the lookup table from a ```.pkl```-file and find graph-state constructions. Before running this script, download the ```.pkl```-file that contains the lookup table from https://erda.ku.dk/archives/c34f263db0bbc3649990806548a9833d/published-archive.html and make sure you have the libraries ```networkx, dill, matplotlib, numpy```. To use the lookup table interactively, load it e.g. in the debug mode. Use a system with at least ```32GB``` of RAM.
 - ```graph_table.py``` contains code that can be used to compute the lookup table from scratch (takes very long).
-- ```graph_transformer_with_clifford.py/graph_transformer.py```: graph transformations from https://github.com/nbi-hyq/FusionGraphTransformer with/without considering local Clifford gates that make a state a stabilizer state which is not a graph state.
 
 # example: use the lookup table
 Several examples for lookups of graph state constructions can be found in ```graph_table_load.py```. Let's look at a specific example. Say we want to generate a target graph state with the structure of a cube. Given a list with all its edges and using ```networkx```, you can find a construction with the following code:
@@ -41,5 +39,5 @@ The output will look like:
 
 This protocol needs to be read from the bottom to the top. The uneven line numbers represent graph states and the even lines represent fusions or local complementations (see https://arxiv.org/abs/quant-ph/0602096). Line 15 is the graph state with which the physical graph state-generation starts (a caterpillar tree). In l. 14, ```--- no LC ---``` means that you do not need to apply any local complementations and you just keep the graph state as is (so the graphs in l. 13 coincides with the one in l.15). Line 12 says that one needs to apply a fusion (to the state in l.13) that measures the parities ```XZ``` and ```ZX``` (see https://doi.org/10.48550/arXiv.2405.02414) between the qubits 5 and 0. In l.10, ```--- no LC ---``` again says that no local complementations are required before the next fusion, so l.9 equals l.11. Next, one needs to apply a fusion between the qubits 12 and 13 as l.8 indicates. Afterwards, one needs to apply some local graph complementations (LC) before the next fusion is performed (see l.6). The local complementation on the left of the list must be done first, so apply LC(1), LC(2), LC(1). This transforms the graph to the graph shown in l.5. Finally, apply a fusion between qubits 8 and 2 (see l.4) and do no more local complementations (l.2, ```--- no LC ---```). What you get is the cube graph state (see l.1). An illustration is attached below where fusion qubits are highlighted in green.
 
-[cube_construction.pdf](https://github.com/user-attachments/files/17822165/cube_construction.pdf)
+[cube_construction_all.pdf](https://github.com/user-attachments/files/17916496/cube_construction_all.pdf)
 
