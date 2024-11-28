@@ -2,6 +2,7 @@ import networkx as nx
 import numpy as np
 import copy
 from graph_transformer import measure_single, measure_double_parity
+from graph_transformer_with_clifford import measure_double_parity_with_clifford
 
 
 # locally complement a graph at node m
@@ -35,6 +36,17 @@ def array_to_nx(arry):
     n_edges = (len(arry)-num_nodes-1) // 2
     g.add_edges_from([(arry[2*i+num_nodes+1], arry[2*i+num_nodes+2]) for i in range(n_edges)])
     return g
+
+
+# print fusion with local Clifford gates that need to be applied afterward to back to a graph state
+def print_fusion_with_gates_afterwards(gr_input, fusion_link):
+    nx.set_node_attributes(gr_input, '', 'LC')
+    measure_double_parity_with_clifford(gr_input, fusion_link[1], fusion_link[2], fusion_link[3])
+    l_gates = []
+    for n in gr_input.nodes:
+        if not gr_input.nodes[n]['LC'] == '':
+            l_gates.append(gr_input.nodes[n]['LC'] + '^{-1}_' + str(n))
+    print(fusion_link[1:], l_gates)
 
 
 class GraphTable:
@@ -183,7 +195,7 @@ class GraphTable:
         single = ['Z']
         fusion = ['XZZX']
         num_graph_init = self.n_graph
-        depth = 0  # depth in the tablebase
+        depth = 0  # depth in the orbit graph
         start = 0  # where the orbits of largest depth start
         while True:
             for i in range(start, num_graph_init):  # only loop over orbits that have been added in previous round
@@ -214,7 +226,7 @@ class GraphTable:
     # inefficient way of finding connecting path within orbit via BFS (path from gr_idx1 ro gr_idx2)
     def find_path_in_oribit(self, gr_idx1, gr_idx2):
         if gr_idx1 == gr_idx2:
-            print('gr1 == gr2')
+            print('--- no LC ---')
         elif self.a_graph_orbit[gr_idx1] == self.a_graph_orbit[gr_idx2]:
             idx_set = set([gr_idx1])  # to see if graph is there already
             bfs_list = [array_to_nx(self.l_graph[gr_idx1])]
@@ -243,7 +255,7 @@ class GraphTable:
             while pos > 0:
                 path.append(lc_list[pos])
                 pos = root_list[pos]
-            print('LC-path: ', list(reversed(path)))
+            print('LC: ', list(reversed(path)))
         else:
             print('graphs not in same orbit')
 
@@ -258,22 +270,31 @@ class GraphTable:
         _, _, idx = self.find_graph(g)
         return idx
 
-    # determine way of generating g by going backwards in tablebase
+    # determine way of generating the target graph gr by going backwards in orbit graph
     def back_trace(self, gr):
         _, exist_gr, gr_idx = self.find_graph(gr)
         if exist_gr:
-            parent_orbit = self.a_graph_orbit[gr_idx]
-            while self.l_num_to_orbit[parent_orbit] > 0:
-                self.find_path_in_oribit(self.get_measured_graph_idx(self.l_link_to_orbit[parent_orbit]), gr_idx)  # connections within orbit
-                print(self.l_link_to_orbit[parent_orbit])
-                gr_idx = self.l_link_to_orbit[parent_orbit][0]
-                print(array_to_nx(self.l_graph[gr_idx]).edges)
-                parent_orbit = self.a_graph_orbit[gr_idx]
-            self.find_path_in_oribit(self.l_orbit[parent_orbit][0], gr_idx)  # path to branched chain at orbit start
-            gr_idx_init = self.l_orbit[parent_orbit][0]  # cannot be different caterpillar
+            my_orbit = self.a_graph_orbit[gr_idx]  # orbit index containing the current graph
+            print(array_to_nx(self.l_graph[gr_idx]).edges)  # print target graph
+            while self.l_num_to_orbit[my_orbit] > 0:
+                idx_orbit_entry = self.get_measured_graph_idx(self.l_link_to_orbit[my_orbit])
+                self.find_path_in_oribit(idx_orbit_entry, gr_idx)  # LC path from gr_idx to orbit entry point
+                print(array_to_nx(self.l_graph[idx_orbit_entry]).edges)  # print graph at orbit entry point
+                gr_idx = self.l_link_to_orbit[my_orbit][0]  # move on to graph in upstream orbit from where my_orbit is reached by one fusion
+                gr_upstream = array_to_nx(self.l_graph[gr_idx])
+                if (self.l_link_to_orbit[my_orbit][3] == 'XZZX'
+                        and (self.l_link_to_orbit[my_orbit][1], self.l_link_to_orbit[my_orbit][2]) not in gr_upstream.edges
+                        and (self.l_link_to_orbit[my_orbit][2], self.l_link_to_orbit[my_orbit][1]) not in gr_upstream.edges):  # no additional local Clifford gates in this case
+                    print(self.l_link_to_orbit[my_orbit][1:])  # print fusion link
+                else:
+                    print_fusion_with_gates_afterwards(gr_upstream, self.l_link_to_orbit[my_orbit])
+                print(array_to_nx(self.l_graph[gr_idx]).edges)  # print graph in upstream orbit
+                my_orbit = self.a_graph_orbit[gr_idx]  # move on to upstream orbit containing the new gr_idx graph
+            self.find_path_in_oribit(self.l_orbit[my_orbit][0], gr_idx)  # path to branched chain (always at index 0)
+            gr_idx_init = self.l_orbit[my_orbit][0]
             print(array_to_nx(self.l_graph[gr_idx_init]).edges)
         else:
-            print('graph is not in tablebase')
+            print('graph is not in lookup table')
 
 
 if __name__ == '__main__':

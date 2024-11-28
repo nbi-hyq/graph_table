@@ -1,9 +1,11 @@
 import networkx as nx
 import numpy as np
+import matplotlib.pyplot as plt
 import random
 from functools import reduce
 
-### code from: https://github.com/nbi-hyq/FusionGraphTransformer with local Clifford gates removed
+
+### code from https://github.com/nbi-hyq/FusionGraphTransformer with local Clifford gates
 
 # get node from list (random or deterministic for special neighbor choice)
 def get_list_element(l_input, rnd=False):
@@ -11,6 +13,121 @@ def get_list_element(l_input, rnd=False):
         return random.choice(l_input)
     else:
         return max(l_input)
+
+
+# exemplary graph: two-dimensional square lattice with diagonals
+def get_bcc_2d_lattice(l_x, l_y):
+    g = nx.Graph()
+    for x in range(l_x):
+        for y in range(l_y):
+            g.add_node(y + x*l_y, pos=(x, y))
+    for x in range(l_x):
+        for y in range(l_y):
+            if x < l_x-1:
+                g.add_edge(y + x*l_y, y + (x+1)*l_y)
+            if y < l_y-1:
+                g.add_edge(y + x*l_y, y+1 + x*l_y)
+            if x < l_x-1 and y < l_y-1:
+                g.add_edge(y + x*l_y, y+1 + (x+1)*l_y)
+            if x < l_x-1 and y > 0:
+                g.add_edge(y + x*l_y, y-1 + (x+1)*l_y)
+    nx.set_node_attributes(g, '', 'LC')  # store local Clifford (LC) gates as node attribute
+    return g
+
+
+# exemplary graph: two linear chains
+def get_double_chain(len_chain):
+    g = nx.Graph()
+    for x in range(len_chain):
+        g.add_node(x, pos=(x, 0))
+        g.add_node(x+len_chain, pos=(x, 1))
+    for x in range(len_chain-1):
+        g.add_edge(x, x+1)
+        g.add_edge(x+len_chain, x+len_chain + 1)
+    nx.set_node_attributes(g, '', 'LC')  # store local Clifford (LC) gates as node attribute
+    return g
+
+
+# transform Pauli matrix measurement pattern (instead of the Clifford gates on the graph state)
+def transform_pauli_measurement_pattern(g, node, pauli):
+    if g.nodes[node]['LC'] == '':
+        return pauli
+    elif g.nodes[node]['LC'] == 'Q':
+        if pauli == 'X':
+            return 'X'
+        elif pauli == 'Y':
+            return 'Z'
+        elif pauli == 'Z':
+            return 'Y'
+    elif g.nodes[node]['LC'] == 'H':
+        if pauli == 'Y':
+            return 'Y'
+        elif pauli == 'Z':
+            return 'X'
+        elif pauli == 'X':
+            return 'Z'
+    elif g.nodes[node]['LC'] == 'R':
+        if pauli == 'Z':
+            return 'Z'
+        elif pauli == 'Y':
+            return 'X'
+        elif pauli == 'X':
+            return 'Y'
+    elif g.nodes[node]['LC'] == 'RH' or g.nodes[node]['LC'] == 'HQ' or g.nodes[node]['LC'] == 'QR':
+        if pauli == 'X':
+            return 'Y'
+        elif pauli == 'Y':
+            return 'Z'
+        elif pauli == 'Z':
+            return 'X'
+    elif g.nodes[node]['LC'] == 'HR' or g.nodes[node]['LC'] == 'QH' or g.nodes[node]['LC'] == 'RQ':
+        if pauli == 'X':
+            return 'Z'
+        elif pauli == 'Y':
+            return 'X'
+        elif pauli == 'Z':
+            return 'Y'
+
+
+# transform measured parity pattern (instead of the Clifford gates on the graph state) ('XZZX' means X_1Z_2 and Z_1X_2)
+def transform_parity_measurement_pattern(g, node1, node2, parity):
+    l_parity = list(parity)
+    l_parity[0] = transform_pauli_measurement_pattern(g, node1, parity[0])
+    l_parity[2] = transform_pauli_measurement_pattern(g, node1, parity[2])
+    l_parity[1] = transform_pauli_measurement_pattern(g, node2, parity[1])
+    l_parity[3] = transform_pauli_measurement_pattern(g, node2, parity[3])
+    new_parity = ''.join(map(str, l_parity))
+    if new_parity in {'XZZX', 'ZXXZ', 'XZYY', 'YYXZ', 'ZXYY', 'YYZX'}:
+        return 'XZZX'
+    elif new_parity in {'XYYX', 'YXXY', 'XYZZ', 'ZZXY', 'YXZZ', 'ZZYX'}:
+        return 'XYYX'
+    elif new_parity in {'YZZY', 'ZYYZ', 'YZXX', 'XXYZ', 'ZYXX', 'XXZY'}:
+        return 'YZZY'
+    elif new_parity in {'XXYY', 'YYXX', 'XXZZ', 'ZZXX', 'YYZZ', 'ZZYY'}:
+        return 'XXZZ'
+    elif new_parity in {'XYYZ', 'YZXY', 'XYZX', 'ZXYZ', 'YZZX', 'ZXXY'}:
+        return 'XYYZ'
+    elif new_parity in {'YXZY', 'ZYYX', 'YXXZ', 'XZZY', 'ZYXZ', 'XZYX'}:
+        return 'YXZY'
+
+
+# update local Clifford (LC) gate at node (up to signs, Q,H,R have the effect of sqrt(X,Y,Z) on the Pauli group)
+def update_lc(g, node, gate):
+    if g.nodes[node]['LC'] == '':
+        g.nodes[node]['LC'] = gate
+    elif g.nodes[node]['LC'][-1] == gate:
+        g.nodes[node]['LC'] = g.nodes[node]['LC'][0:-1]
+    else:
+        g.nodes[node]['LC'] = g.nodes[node]['LC'] + gate
+        if len(g.nodes[node]['LC']) == 3:
+            if 'Q' in g.nodes[node]['LC'] and 'H' in g.nodes[node]['LC'] and 'R' in g.nodes[node]['LC']:
+                g.nodes[node]['LC'] = g.nodes[node]['LC'][1]  # e.g. RHQ = H (regarding its effect on Pauli matrices)
+            elif 'Q' not in g.nodes[node]['LC']:
+                g.nodes[node]['LC'] = 'Q'  # e.g. RHR = Q (regarding its effect on the Pauli matrices)
+            elif 'H' not in g.nodes[node]['LC']:
+                g.nodes[node]['LC'] = 'H'
+            elif 'R' not in g.nodes[node]['LC']:
+                g.nodes[node]['LC'] = 'R'
 
 
 # replace old neighborhood of node n by neighbors in set nb_new
@@ -34,6 +151,8 @@ def measure_z(g, node):
 
 def measure_y(g, node):
     local_compl(g, node)
+    for nb in g.neighbors(node):
+        update_lc(g, nb, 'R')  # see eq. 100 in Hein2006
     g.remove_node(node)
 
 
@@ -45,6 +164,7 @@ def measure_y_alternative(g, node):
         nb_n[n] = set([nb for nb in g.neighbors(n)])
     for n in nb_node:
         replace_neigborhood(g, n, nb_n[n].symmetric_difference(nb_node.difference([n])))
+        update_lc(g, n, 'R')
 
 
 def measure_x(g, node, sp=-1, rnd=False):
@@ -57,6 +177,7 @@ def measure_x(g, node, sp=-1, rnd=False):
     local_compl(g, node)
     g.remove_node(node)
     local_compl(g, sp)
+    update_lc(g, sp, 'H')  # see eq. 101 in Hein2006
 
 
 def measure_x_alternative(g, node, sp=-1, rnd=False):
@@ -66,6 +187,7 @@ def measure_x_alternative(g, node, sp=-1, rnd=False):
         return
     if sp < 0:
         sp = get_list_element(list(nb_node), rnd=rnd)
+    update_lc(g, sp, 'H')
     nb_n = {}  # dictionary storing original neighborhood of all potentially affected nodes
     for n in nb_node.union(set([nb for nb in g.neighbors(sp)])):
         nb_n[n] = set([nb for nb in g.neighbors(n)])
@@ -108,6 +230,7 @@ def transform_xzzx(g_in, qbt_a, qbt_b, a_sp=-1, b_sp=-1):
                 nb_b = nb_h
             if a_sp < 0:
                 a_sp = get_list_element(list(nb_a))
+            update_lc(g_in, a_sp, 'H')
             for n in nb_a.union([nb for nb in g_in.neighbors(a_sp)]):
                 nb_n[n] = set([nb for nb in g_in.neighbors(n)])
             for n in nb_a.difference([a_sp]):
@@ -121,6 +244,7 @@ def transform_xzzx(g_in, qbt_a, qbt_b, a_sp=-1, b_sp=-1):
         elif not nb_a.difference(nb_b) and not nb_b.difference(nb_a) and nb_a.intersection(nb_b):  # shared neighborhood
             if a_sp < 0:
                 a_sp = get_list_element(list(nb_a.intersection(nb_b)))
+            update_lc(g_in, a_sp, 'H')
             for n in nb_a.union([nb for nb in g_in.neighbors(a_sp)]):
                 nb_n[n] = set([nb for nb in g_in.neighbors(n)])
             for n in nb_a.intersection(nb_b).difference([a_sp]):
@@ -136,6 +260,8 @@ def transform_xzzx(g_in, qbt_a, qbt_b, a_sp=-1, b_sp=-1):
                 a_sp = get_list_element(list(nb_a.difference(nb_b)))
             if b_sp < 0:
                 b_sp = get_list_element(list(nb_b.difference(nb_a)))
+            update_lc(g_in, a_sp, 'H')
+            update_lc(g_in, b_sp, 'H')
             for n in nb_a.union(nb_b).union([nb for nb in g_in.neighbors(a_sp)]).union([nb for nb in g_in.neighbors(b_sp)]):
                 nb_n[n] = set([nb for nb in g_in.neighbors(n)])
             replace_neigborhood(g_in, a_sp, nb_a.difference([a_sp]))  # other special neighbor done implicitly
@@ -194,6 +320,8 @@ def transform_xzzx(g_in, qbt_a, qbt_b, a_sp=-1, b_sp=-1):
                 c_sp = get_list_element(list(nb_b.intersection(nb_a)))
             else:
                 c_sp = b_sp  # use specified neighbor (no check if b_sp fulfills conditions)
+            update_lc(g_in, a_sp, 'H')
+            update_lc(g_in, c_sp, 'H')
             for n in nb_a.union(nb_b).union([nb for nb in g_in.neighbors(a_sp)]).union([nb for nb in g_in.neighbors(c_sp)]):
                 nb_n[n] = set([nb for nb in g_in.neighbors(n)])
             replace_neigborhood(g_in, c_sp, nb_b.difference([c_sp]))  # other special neighbor done implicitly
@@ -244,6 +372,7 @@ def transform_xxzz(g_in, qbt_a, qbt_b, sp=-1):
         return
     elif sp < 0:
         sp = get_list_element(list(sym_diff_nb_a_nb_b))
+    update_lc(g_in, sp, 'H')
     nb_n  = {}  # dictionary storing original neighborhood of all potentially affected nodes
     for n in sym_diff_nb_a_nb_b.union([nb for nb in g_in.neighbors(sp)]):
         nb_n[n] = set([nb for nb in g_in.neighbors(n)])
@@ -271,8 +400,10 @@ def transform_yzzy(g_in, qbt_a, qbt_b, sp=-1):
             nb_n[n] = set([nb for nb in g_in.neighbors(n)])
         for n in nb_a.difference(nb_b):
             replace_neigborhood(g_in, n, nb_n[n].symmetric_difference(nb_a.difference([n])))
+            update_lc(g_in, n, 'R')
         for n in nb_b.difference(nb_a):
             replace_neigborhood(g_in, n, nb_n[n].symmetric_difference(nb_b.difference([n])))
+            update_lc(g_in, n, 'R')
         for n in nb_b.intersection(nb_a):
             replace_neigborhood(g_in, n, reduce(lambda a, b: a.symmetric_difference(b), [nb_n[n], nb_b, nb_a]))
     else:  # case of unconnected fusion qubits
@@ -283,6 +414,7 @@ def transform_yzzy(g_in, qbt_a, qbt_b, sp=-1):
                 nb_b = nb_h
             if sp < 0:
                 sp = get_list_element(list(nb_b.difference(nb_a)))
+            update_lc(g_in, sp, 'H')
             for n in nb_a.union(nb_b).union([nb for nb in g_in.neighbors(sp)]):
                 nb_n[n] = set([nb for nb in g_in.neighbors(n)])
             for n in nb_a.difference(nb_b):
@@ -290,6 +422,7 @@ def transform_yzzy(g_in, qbt_a, qbt_b, sp=-1):
                     replace_neigborhood(g_in, n, reduce(lambda a, b: a.symmetric_difference(b), [nb_n[n], nb_n[sp], nb_a.difference([n])]).union([sp]))
                 else:
                     replace_neigborhood(g_in, n, reduce(lambda a, b: a.symmetric_difference(b), [nb_n[n], nb_b, nb_n[sp].difference([n])]).union([sp]))
+                update_lc(g_in, n, 'R')
             for n in nb_b.difference(nb_a).difference([sp]):
                 if not n in nb_n[sp]:
                     replace_neigborhood(g_in, n, nb_n[n].symmetric_difference(nb_n[sp]).union([sp]))
@@ -300,6 +433,7 @@ def transform_yzzy(g_in, qbt_a, qbt_b, sp=-1):
                     replace_neigborhood(g_in, n, nb_n[n].symmetric_difference(nb_a.difference([n])))
                 else:
                     replace_neigborhood(g_in, n, nb_n[n].symmetric_difference(nb_b.difference([n])))
+                update_lc(g_in, n, 'R')
             for n in nb_n[sp]:
                 if n not in nb_a.union(nb_b):
                     replace_neigborhood(g_in, n, reduce(lambda a, b: a.symmetric_difference(b), [nb_n[n], nb_a, nb_b]))
@@ -308,6 +442,7 @@ def transform_yzzy(g_in, qbt_a, qbt_b, sp=-1):
                 nb_n[n] = set([nb for nb in g_in.neighbors(n)])
             for n in nb_a.intersection(nb_b):
                 replace_neigborhood(g_in, n, nb_n[n].symmetric_difference(nb_b.difference([n])))
+                update_lc(g_in, n, 'R')
 
 
 # XYYX is identical (independent of whether there is a connection between A, B)
@@ -322,6 +457,7 @@ def transform_xyyx(g_in, qbt_a, qbt_b):
         nb_n[n] = set([nb for nb in g_in.neighbors(n)])
     for n in sym_diff_nb_a_nb_b:
         replace_neigborhood(g_in, n, reduce(lambda a, b: a.symmetric_difference(b), [nb_n[n], nb_a.difference([n]), nb_b.difference([n])]))
+        update_lc(g_in, n, 'R')
 
 
 def transform_xyyz(g_in, qbt_a, qbt_b, sp=-1):
@@ -340,13 +476,16 @@ def transform_xyyz(g_in, qbt_a, qbt_b, sp=-1):
             replace_neigborhood(g_in, n, nb_n[n].symmetric_difference(nb_b))
         for n in nb_b.difference(nb_a):
             replace_neigborhood(g_in, n, reduce(lambda a, b: a.symmetric_difference(b), [nb_n[n], nb_b.difference([n]), nb_a]))
+            update_lc(g_in, n, 'R')
         for n in nb_a.intersection(nb_b):
             replace_neigborhood(g_in, n, nb_n[n].symmetric_difference(nb_a.difference([n])))
+            update_lc(g_in, n, 'R')
     else:  # connected fusion qubits
         inter_nb_a_nb_b = nb_a.intersection(nb_b)
         if nb_b.difference(nb_a):
             if sp < 0:
                 sp = get_list_element(list(nb_b.difference(nb_a)))
+            update_lc(g_in, sp, 'H')
             for n in nb_a.union(nb_b).union([nb for nb in g_in.neighbors(sp)]):
                 nb_n[n] = set([nb for nb in g_in.neighbors(n)])
             for n in nb_a.difference(nb_b):
@@ -354,6 +493,7 @@ def transform_xyyz(g_in, qbt_a, qbt_b, sp=-1):
                     replace_neigborhood(g_in, n, nb_n[n].symmetric_difference(nb_a.difference([n])))
                 else:
                     replace_neigborhood(g_in, n, reduce(lambda a, b: a.symmetric_difference(b), [nb_n[n], nb_b, nb_a.difference([n])]))
+                update_lc(g_in, n, 'R')
             for n in nb_b.difference(nb_a).difference([sp]):
                 if not n in nb_n[sp]:
                     replace_neigborhood(g_in, n, nb_n[n].symmetric_difference(nb_n[sp]).union([sp]))
@@ -364,12 +504,14 @@ def transform_xyyz(g_in, qbt_a, qbt_b, sp=-1):
                     replace_neigborhood(g_in, n, reduce(lambda a, b: a.symmetric_difference(b), [nb_n[n], nb_n[sp], nb_a.difference([n])]).union([sp]))
                 else:
                     replace_neigborhood(g_in, n, reduce(lambda a, b: a.symmetric_difference(b), [nb_n[n], nb_a, nb_b, nb_n[sp].difference([n])]).union([sp]))
+                update_lc(g_in, n, 'R')
             for n in nb_n[sp]:
                 if n not in nb_a.union(nb_b):
                     replace_neigborhood(g_in, n, nb_n[n].symmetric_difference(nb_b))
         elif inter_nb_a_nb_b:
             if sp < 0:
                 sp = get_list_element(list(inter_nb_a_nb_b))
+            update_lc(g_in, sp, 'H')
             for n in nb_a.difference(nb_b).union(inter_nb_a_nb_b).union([nb for nb in g_in.neighbors(sp)]):
                 nb_n[n] = set([nb for nb in g_in.neighbors(n)])
             for n in nb_a.difference(nb_b):
@@ -377,6 +519,7 @@ def transform_xyyz(g_in, qbt_a, qbt_b, sp=-1):
                     replace_neigborhood(g_in, n, reduce(lambda a, b: a.symmetric_difference(b), [nb_n[n], nb_b, nb_a.difference([n])]))
                 else:
                     replace_neigborhood(g_in, n, nb_n[n].symmetric_difference(nb_a.difference([n])))
+                update_lc(g_in, n, 'R')
             for n in inter_nb_a_nb_b.difference([sp]):
                 if not n in nb_n[sp]:
                     replace_neigborhood(g_in, n, nb_n[n].symmetric_difference(nb_n[sp]).union([sp]))
@@ -390,11 +533,12 @@ def transform_xyyz(g_in, qbt_a, qbt_b, sp=-1):
                 nb_n[n] = set([nb for nb in g_in.neighbors(n)])
             for n in nb_a.difference(nb_b):
                 replace_neigborhood(g_in, n, nb_n[n].symmetric_difference(nb_a.difference([n])))
+                update_lc(g_in, n, 'R')
 
 
 # g: graph, node: measured qubit, pauli: measured Pauli operator (transform if Clifford gate is applied before)
-def measure_single(g, node, pauli, method=0, sp=-1, rnd=False):
-    pauli_new = pauli
+def measure_single_with_clifford(g, node, pauli, method=0, sp=-1, rnd=False):
+    pauli_new = transform_pauli_measurement_pattern(g, node, pauli)
     if pauli_new == 'X':
         if method == 0:
             measure_x(g, node, sp=sp, rnd=rnd)
@@ -409,9 +553,43 @@ def measure_single(g, node, pauli, method=0, sp=-1, rnd=False):
         measure_z(g, node)
 
 
+# multiply two commuting parities to get third parity
+def multiply_parities(double_parity):
+    p = ''
+    for i in range(2):
+        if (double_parity[0+i] == 'X' and double_parity[2+i] == 'Y') or (double_parity[0+i] == 'Y' and double_parity[2+i] == 'X'):
+            p += 'Z'
+        elif (double_parity[0+i] == 'X' and double_parity[2+i] == 'Z') or (double_parity[0+i] == 'Z' and double_parity[2+i] == 'X'):
+            p += 'Y'
+        else:
+            p += 'X'
+    return p
+
+
+# check if the fusion could be deterministic by checking if a measured parity is a stabilizer of the input state g,
+# assuming that g is a graph state (if False, the fusion succeeds with p_s=0.5)
+# new_parity: measured parities, rotated if single-qubit Clifford gates are applied to g
+def check_deterministic(g, node1, node2, new_parity):
+    nb_1 = set([nb for nb in g.neighbors(node1)])
+    nb_2 = set([nb for nb in g.neighbors(node2)])
+    if nb_1 == nb_2:  # shared neighborhood for unconnected fusion qubits
+        if new_parity[0:2] == 'XX' or new_parity[2:4] == 'XX' or multiply_parities(new_parity) == 'XX':
+            return True
+    elif nb_1.difference([node2]) == nb_2.difference([node1]):  # shared neighborhood for connected qubits
+        if new_parity[0:2] == 'YY' or new_parity[2:4] == 'YY' or multiply_parities(new_parity) == 'YY':
+            return True
+    if nb_1 == set([node2]):  # node 1 not connected to anything except node 2
+        if new_parity[0:2] == 'XZ' or new_parity[2:4] == 'XZ' or multiply_parities(new_parity) == 'XZ':
+            return True
+    if nb_2 == set([node1]):  # node 2 not connected to anything except node 1
+        if new_parity[0:2] == 'ZX' or new_parity[2:4] == 'ZX' or multiply_parities(new_parity) == 'ZX':
+            return True
+    return False
+
+
 # (fusion success) g: graph, node1, node2: measured qubits, parity: measured double-parity (transform if Clifford gate is applied before)
-def measure_double_parity(g, node1, node2, parity):
-    parity_new = parity
+def measure_double_parity_with_clifford(g, node1, node2, parity):
+    parity_new = transform_parity_measurement_pattern(g, node1, node2, parity)
     if parity_new == 'XZZX':
         transform_xzzx(g, node1, node2)
     elif parity_new == 'XXZZ':
